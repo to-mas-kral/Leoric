@@ -1,0 +1,15 @@
+[package]
+name = "pgrf2_project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.20.2"
+glfw = "0.44.0"
+eyre = "0.6.7"
+tobj = "3.2.0"
+image = "0.24.1"
+gl = "0.14.0"
+
+[profile.dev.package."*"]
+opt-level = 3
