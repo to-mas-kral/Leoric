@@ -1,5 +1,3 @@
-#![feature(array_chunks)]
-
 use std::{
     ffi::{c_void, CStr},
     ptr, thread,
@@ -8,7 +6,7 @@ use std::{
 
 use camera::Camera;
 use eyre::{Context, ContextCompat, Result};
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use glfw::{Action, Context as GlfwContext, CursorMode, Key, OpenGlProfileHint, WindowHint};
 use renderer::Renderer;
 use shader::Shader;
@@ -22,8 +20,8 @@ mod solid;
 fn main() -> Result<()> {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).wrap_err("Failed to create GLFW window.")?;
 
-    let width = 3840;
-    let height = 2160;
+    let width = 1 * 1920u32;
+    let height = 1 * 1080u32;
 
     let (mut window, events) = glfw
         .create_window(
@@ -39,15 +37,16 @@ fn main() -> Result<()> {
     glfw.window_hint(WindowHint::ContextVersionMinor(6));
     glfw.window_hint(WindowHint::OpenGlProfile(OpenGlProfileHint::Core));
     glfw.window_hint(WindowHint::OpenGlDebugContext(true));
+    glfw.window_hint(glfw::WindowHint::DoubleBuffer(true));
 
     gl::load_with(|s| window.get_proc_address(s) as *const _);
     unsafe {
         gl::Viewport(0, 0, width as i32, height as i32);
         gl::Enable(gl::DEPTH_TEST);
-        // TODO: test culling
-        //gl::Enable(gl::CULL_FACE);
-        //gl::CullFace(gl::BACK);
-        //gl::FrontFace(gl::CW);
+        //TODO: test culling
+        gl::Enable(gl::CULL_FACE);
+        gl::CullFace(gl::BACK);
+        gl::FrontFace(gl::CCW);
         gl::PolygonMode(gl::FRONT, gl::FILL);
 
         gl::Enable(gl::DEBUG_OUTPUT);
@@ -65,51 +64,71 @@ fn main() -> Result<()> {
 
     // Winodw init
     window.set_cursor_pos((width as f64) / 2., (height as f64) / 2.);
-    window.set_cursor_mode(CursorMode::Disabled);
     window.set_framebuffer_size_polling(true);
     window.set_all_polling(true);
     window.set_raw_mouse_motion(true);
     window.make_current();
 
     // Shaders
-    // https://sketchfab.com/3d-models/the-great-drawing-room-feb9ad17e042418c8e759b81e3b2e5d7
     let shader = Shader::from_file("shaders/vs.vert", "shaders/fs.frag")?;
 
     // Scene setup
-    let room = Solid::from_obj_file("resources/the-great-drawing-room/model.obj")
+    // This work is based on "Lancia Fulvia rallye"
+    // (https://sketchfab.com/3d-models/lancia-fulvia-rallye-5f02ef9e0daf481aba8c8b51216c0a6b)
+    // by Floppy (https://sketchfab.com/fastolfe) licensed under CC-BY-NC-4.0
+    // (http://creativecommons.org/licenses/by-nc/4.0/)
+    let car = Solid::from_obj_file("resources/lancia_fulvia_rallye/Fulvia.obj")
         .wrap_err("Failed to load the object")?;
 
-    let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.5, 0.05, width, height);
+    // This work is based on "Street_Light"
+    // (https://sketchfab.com/3d-models/street-light-16fc20d9d6564adb84ea27e35778da06)
+    // by dodotcreatives (https://sketchfab.com/dodotcreatives)
+    // licensed under CC-BY-4.0
+    // (http://creativecommons.org/licenses/by/4.0/)
+    let mut street_light = Solid::from_obj_file("resources/street_light/StreetLight.obj")
+        .wrap_err("Failed to load the object")?;
+
+    street_light.transform =
+        Mat4::from_translation(Vec3::new(-1., 0., 2.)) * Mat4::from_scale(Vec3::splat(0.3));
+
+    let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer {};
 
     while !window.should_close() {
-        glfw.poll_events();
+        handle_input(&mut glfw, &mut window, &mut camera, &events);
 
-        // pressing a key only generates one event, use get_key() instead
-        if window.get_key(Key::W) == Action::Press {
-            camera.move_forward(1.0);
-        }
-        if window.get_key(Key::S) == Action::Press {
-            camera.move_backward(1.0);
-        }
-        if window.get_key(Key::A) == Action::Press {
-            camera.strafe_left(1.0);
-        }
-        if window.get_key(Key::D) == Action::Press {
-            camera.strafe_right(1.0);
-        }
-
-        for (_, event) in glfw::flush_messages(&events) {
-            handle_window_event(&mut window, event, &mut camera);
-        }
-
-        renderer.render(&[&room], &shader, &mut camera, width, height);
+        renderer.render(&[&street_light, &car], &shader, &mut camera, width, height);
         window.swap_buffers();
 
         thread::sleep(Duration::from_millis(10));
     }
 
     Ok(())
+}
+
+fn handle_input(
+    glfw: &mut glfw::Glfw,
+    window: &mut glfw::Window,
+    camera: &mut Camera,
+    events: &std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
+) {
+    glfw.poll_events();
+    // pressing a key only generates one event, use get_key() instead
+    if window.get_key(Key::W) == Action::Press {
+        camera.move_forward(1.0);
+    }
+    if window.get_key(Key::S) == Action::Press {
+        camera.move_backward(1.0);
+    }
+    if window.get_key(Key::A) == Action::Press {
+        camera.strafe_left(1.0);
+    }
+    if window.get_key(Key::D) == Action::Press {
+        camera.strafe_right(1.0);
+    }
+    for (_, event) in glfw::flush_messages(events) {
+        handle_window_event(window, event, camera);
+    }
 }
 
 fn handle_window_event(window: &mut glfw::Window, event: glfw::WindowEvent, camera: &mut Camera) {
@@ -119,6 +138,8 @@ fn handle_window_event(window: &mut glfw::Window, event: glfw::WindowEvent, came
     match event {
         glfw::WindowEvent::Key(key, _, Action::Press, _) => match key {
             Key::Escape => window.set_should_close(true),
+            Key::Enter => window.set_cursor_mode(CursorMode::Disabled),
+            Key::RightShift => window.set_cursor_mode(CursorMode::Normal),
             _ => (),
         },
         _ => {}
@@ -128,12 +149,25 @@ fn handle_window_event(window: &mut glfw::Window, event: glfw::WindowEvent, came
 extern "system" fn gl_debug_callback(
     _src: u32,
     _typ: u32,
-    _id: u32,
-    _severity: u32,
+    id: u32,
+    severity: u32,
     _len: i32,
     msg: *const i8,
     _user_param: *mut c_void,
 ) {
+    // Buffer creation on NVidia cards
+    if id == 131185 {
+        return;
+    }
+
+    match severity {
+        gl::DEBUG_SEVERITY_NOTIFICATION => print!("OpenGL - notification: "),
+        gl::DEBUG_SEVERITY_LOW => print!("OpenGL - low: "),
+        gl::DEBUG_SEVERITY_MEDIUM => print!("OpenGL - medium: "),
+        gl::DEBUG_SEVERITY_HIGH => print!("OpenGL - high: "),
+        _ => unreachable!("Unknown severity in glDebugCallback: '{}'", severity),
+    }
+
     // TODO: check if the message is guaranteed to be ASCII
     let msg = unsafe { CStr::from_ptr(msg) };
     println!("OpenGL debug message: '{}'", msg.to_string_lossy())

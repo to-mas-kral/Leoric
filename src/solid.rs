@@ -1,18 +1,24 @@
 use std::mem::size_of;
 
 use eyre::Result;
+use glam::{Mat4, Vec3};
 use image::DynamicImage;
 
 const POS_ATTRIB_INDEX: u32 = 0;
 const TEXCOORDS_ATTRIB_INDEX: u32 = 1;
+const NORMALS_ATTRIB_INDEX: u32 = 2;
 
 pub struct Solid {
     pub meshes: Vec<Mesh>,
+    pub transform: Mat4,
 }
 
 impl Solid {
     pub fn new(meshes: Vec<Mesh>) -> Self {
-        Solid { meshes }
+        Solid {
+            meshes,
+            transform: Mat4::IDENTITY,
+        }
     }
 
     pub fn from_obj_file(obj_path: &str) -> Result<Self> {
@@ -39,7 +45,13 @@ impl Solid {
                 image::open(diffuse_texture_path)?
             };
 
-            let material = Material::new(diffuse_texture);
+            let material = Material::new(
+                diffuse_texture,
+                Vec3::from(material.diffuse),
+                Vec3::from(material.ambient),
+                Vec3::from(material.specular),
+                material.shininess,
+            );
 
             let mesh = Mesh::new(
                 model.mesh.positions,
@@ -63,6 +75,7 @@ impl Solid {
             let mut positions = 0;
             let mut texcoords = 0;
             let mut indices = 0;
+            let mut normals = 0;
             let mut vao = 0;
 
             // TODO: normals
@@ -71,35 +84,32 @@ impl Solid {
                 gl::GenVertexArrays(1, &mut vao);
                 gl::BindVertexArray(vao);
 
-                gl::GenBuffers(1, &mut positions);
-                gl::BindBuffer(gl::ARRAY_BUFFER, positions);
-
-                let positions_size = mesh.positions.len() * size_of::<f32>();
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    positions_size as isize,
-                    mesh.positions.as_ptr() as _,
-                    gl::STATIC_DRAW,
+                // Positions
+                Self::create_buf(
+                    &mut positions,
+                    &mesh.positions,
+                    3,
+                    POS_ATTRIB_INDEX,
+                    gl::FLOAT,
                 );
 
-                gl::GenBuffers(1, &mut texcoords);
-                gl::BindBuffer(gl::ARRAY_BUFFER, texcoords);
-
-                let texcoords_size = mesh.texcoords.len() * size_of::<f32>();
-                gl::BufferData(
-                    gl::ARRAY_BUFFER,
-                    texcoords_size as isize,
-                    mesh.texcoords.as_ptr() as _,
-                    gl::STATIC_DRAW,
+                // Texcoords
+                Self::create_buf(
+                    &mut texcoords,
+                    &mesh.texcoords,
+                    2,
+                    TEXCOORDS_ATTRIB_INDEX,
+                    gl::FLOAT,
                 );
 
-                gl::BindBuffer(gl::ARRAY_BUFFER, positions);
-                gl::VertexAttribPointer(POS_ATTRIB_INDEX, 3, gl::FLOAT, gl::FALSE, 0, 0 as _);
-                gl::EnableVertexAttribArray(POS_ATTRIB_INDEX);
-
-                gl::BindBuffer(gl::ARRAY_BUFFER, texcoords);
-                gl::VertexAttribPointer(TEXCOORDS_ATTRIB_INDEX, 2, gl::FLOAT, gl::FALSE, 0, 0 as _);
-                gl::EnableVertexAttribArray(TEXCOORDS_ATTRIB_INDEX);
+                // Normals
+                Self::create_buf(
+                    &mut normals,
+                    &mesh.normals,
+                    3,
+                    NORMALS_ATTRIB_INDEX,
+                    gl::FLOAT,
+                );
 
                 // Indices
                 gl::GenBuffers(1, &mut indices);
@@ -114,44 +124,81 @@ impl Solid {
                 );
 
                 // Texture
-                let mut texture = 0;
-                gl::GenTextures(1, &mut texture);
-                gl::BindTexture(gl::TEXTURE_2D, texture);
-
-                gl::TexParameteri(
-                    gl::TEXTURE_2D,
-                    gl::TEXTURE_WRAP_S,
-                    gl::MIRRORED_REPEAT as i32,
-                );
-                gl::TexParameteri(
-                    gl::TEXTURE_2D,
-                    gl::TEXTURE_WRAP_T,
-                    gl::MIRRORED_REPEAT as i32,
-                );
-
-                gl::TexParameteri(
-                    gl::TEXTURE_2D,
-                    gl::TEXTURE_MIN_FILTER,
-                    gl::LINEAR_MIPMAP_LINEAR as i32,
-                );
-                gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-
-                gl::TexImage2D(
-                    gl::TEXTURE_2D,
-                    0,
-                    gl::RGBA as i32,
-                    mesh.material.diffuse_texture.width as i32,
-                    mesh.material.diffuse_texture.height as i32,
-                    0,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    mesh.material.diffuse_texture.pixels.as_slice().as_ptr() as _,
-                );
-                gl::GenerateMipmap(gl::TEXTURE_2D);
+                let texture = Self::create_tex(mesh);
 
                 mesh.texture = Some(texture);
                 mesh.vao = Some(vao);
             }
+        }
+    }
+
+    fn create_buf<T: Copy>(id: &mut u32, buffer: &[T], stride: i32, attrib_index: u32, typ: u32) {
+        unsafe {
+            gl::GenBuffers(1, id);
+            gl::BindBuffer(gl::ARRAY_BUFFER, *id);
+
+            let buffer_size = buffer.len() * size_of::<T>();
+
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                buffer_size as isize,
+                buffer.as_ptr() as _,
+                gl::STATIC_DRAW,
+            );
+
+            gl::VertexAttribPointer(attrib_index, stride, typ, gl::FALSE, 0, 0 as _);
+            gl::EnableVertexAttribArray(attrib_index);
+        }
+    }
+
+    fn create_tex(mesh: &mut Mesh) -> u32 {
+        unsafe {
+            let mut texture = 0;
+
+            gl::GenTextures(1, &mut texture);
+            gl::BindTexture(gl::TEXTURE_2D, texture);
+
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::MIRRORED_REPEAT as i32,
+            );
+
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::MIRRORED_REPEAT as i32,
+            );
+
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_MIN_FILTER,
+                gl::LINEAR_MIPMAP_LINEAR as i32,
+            );
+
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+
+            let width = mesh.material.diffuse_texture.width as i32;
+            let height = mesh.material.diffuse_texture.height as i32;
+            let pixels = mesh.material.diffuse_texture.pixels.as_slice();
+
+            // TODO: account for different stride
+            assert!(width * height * 4 == pixels.len() as i32);
+
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA as i32,
+                width,
+                height,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                pixels.as_ptr() as _,
+            );
+            gl::GenerateMipmap(gl::TEXTURE_2D);
+
+            texture
         }
     }
 }
@@ -196,15 +243,21 @@ impl Mesh {
 }
 
 pub struct Material {
-    // ambient
-    // diffuse
-    // specular
-    // shininess
+    pub ambient_k: Vec3,
+    pub diffuse_k: Vec3,
+    pub specular_k: Vec3,
+    pub shininess: f32,
     pub diffuse_texture: Texture,
 }
 
 impl Material {
-    pub fn new(diffuse_texture: DynamicImage) -> Self {
+    pub fn new(
+        diffuse_texture: DynamicImage,
+        diffuse_k: Vec3,
+        ambient_k: Vec3,
+        specular_k: Vec3,
+        shininess: f32,
+    ) -> Self {
         let diffuse_texture = diffuse_texture.flipv().into_rgba8();
         let width = diffuse_texture.width();
         let height = diffuse_texture.height();
@@ -212,6 +265,10 @@ impl Material {
         let flat: Vec<u8> = diffuse_texture.into_raw();
         Self {
             diffuse_texture: Texture::new(flat, width, height),
+            diffuse_k,
+            ambient_k,
+            specular_k,
+            shininess,
         }
     }
 }

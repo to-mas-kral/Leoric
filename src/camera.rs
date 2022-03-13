@@ -44,6 +44,10 @@ impl Camera {
         self.view_matrix
     }
 
+    pub fn get_pos(&self) -> Vec3 {
+        self.pos
+    }
+
     pub fn move_forward(&mut self, d: f32) {
         self.pos += self.dir * d * self.move_speed;
         self.changed = true;
