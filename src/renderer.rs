@@ -33,11 +33,11 @@ impl Renderer {
         shader.set_mat4(persp, "projection\0");
         shader.set_mat4(camera.get_view_mat(), "view\0");
 
-        shader.set_vec3(Vec3::new(-1., 1.5, 2.), "lightPos\0");
+        shader.set_vec3(Vec3::new(-1., 2., 2.), "lightPos\0");
         shader.set_vec3(camera.get_pos(), "viewPos\0");
 
         for solid in solids {
-            shader.set_mat4(solid.transform, "model\0");
+            shader.set_mat4(solid.get_transform(), "model\0");
 
             for mesh in &solid.meshes {
                 match (mesh.vao, mesh.texture) {

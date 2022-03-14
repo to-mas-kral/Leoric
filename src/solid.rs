@@ -1,7 +1,7 @@
 use std::mem::size_of;
 
 use eyre::Result;
-use glam::{Mat4, Vec3};
+use glam::{EulerRot, Mat4, Vec3};
 use image::DynamicImage;
 
 const POS_ATTRIB_INDEX: u32 = 0;
@@ -10,15 +10,26 @@ const NORMALS_ATTRIB_INDEX: u32 = 2;
 
 pub struct Solid {
     pub meshes: Vec<Mesh>,
-    pub transform: Mat4,
+    pub pos: Vec3,
+    pub scale: Vec3,
+    pub rot: Vec3,
 }
 
 impl Solid {
     pub fn new(meshes: Vec<Mesh>) -> Self {
         Solid {
             meshes,
-            transform: Mat4::IDENTITY,
+            pos: Vec3::splat(0.),
+            scale: Vec3::splat(1.),
+            rot: Vec3::splat(0.),
         }
+    }
+
+    pub fn get_transform(&self) -> Mat4 {
+        let r = self.rot;
+        Mat4::from_translation(self.pos)
+            * Mat4::from_euler(EulerRot::XYZ, r.x, r.y, r.z)
+            * Mat4::from_scale(self.scale)
     }
 
     pub fn from_obj_file(obj_path: &str) -> Result<Self> {
@@ -51,6 +62,7 @@ impl Solid {
                 Vec3::from(material.ambient),
                 Vec3::from(material.specular),
                 material.shininess,
+                material.illumination_model,
             );
 
             let mesh = Mesh::new(
@@ -247,6 +259,8 @@ pub struct Material {
     pub diffuse_k: Vec3,
     pub specular_k: Vec3,
     pub shininess: f32,
+    pub illumination_model: Option<u8>,
+
     pub diffuse_texture: Texture,
 }
 
@@ -257,6 +271,7 @@ impl Material {
         ambient_k: Vec3,
         specular_k: Vec3,
         shininess: f32,
+        illumination_model: Option<u8>,
     ) -> Self {
         let diffuse_texture = diffuse_texture.flipv().into_rgba8();
         let width = diffuse_texture.width();
@@ -269,6 +284,7 @@ impl Material {
             ambient_k,
             specular_k,
             shininess,
+            illumination_model,
         }
     }
 }

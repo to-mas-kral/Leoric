@@ -1,12 +1,12 @@
 use std::{
     ffi::{c_void, CStr},
     ptr, thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use camera::Camera;
 use eyre::{Context, ContextCompat, Result};
-use glam::{Mat4, Vec3};
+use glam::Vec3;
 use glfw::{Action, Context as GlfwContext, CursorMode, Key, OpenGlProfileHint, WindowHint};
 use renderer::Renderer;
 use shader::Shader;
@@ -44,10 +44,13 @@ fn main() -> Result<()> {
         gl::Viewport(0, 0, width as i32, height as i32);
         gl::Enable(gl::DEPTH_TEST);
         //TODO: test culling
-        gl::Enable(gl::CULL_FACE);
-        gl::CullFace(gl::BACK);
-        gl::FrontFace(gl::CCW);
+        //gl::Enable(gl::CULL_FACE);
+        //gl::CullFace(gl::BACK);
+        //gl::FrontFace(gl::CCW);
         gl::PolygonMode(gl::FRONT, gl::FILL);
+
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
         gl::Enable(gl::DEBUG_OUTPUT);
         gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
@@ -77,7 +80,7 @@ fn main() -> Result<()> {
     // (https://sketchfab.com/3d-models/lancia-fulvia-rallye-5f02ef9e0daf481aba8c8b51216c0a6b)
     // by Floppy (https://sketchfab.com/fastolfe) licensed under CC-BY-NC-4.0
     // (http://creativecommons.org/licenses/by-nc/4.0/)
-    let car = Solid::from_obj_file("resources/lancia_fulvia_rallye/Fulvia.obj")
+    let mut car = Solid::from_obj_file("resources/lancia_fulvia_rallye/Fulvia.obj")
         .wrap_err("Failed to load the object")?;
 
     // This work is based on "Street_Light"
@@ -88,14 +91,18 @@ fn main() -> Result<()> {
     let mut street_light = Solid::from_obj_file("resources/street_light/StreetLight.obj")
         .wrap_err("Failed to load the object")?;
 
-    street_light.transform =
-        Mat4::from_translation(Vec3::new(-1., 0., 2.)) * Mat4::from_scale(Vec3::splat(0.3));
+    street_light.pos = Vec3::new(-1., 0., 2.);
+    street_light.scale = Vec3::splat(0.3);
 
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer {};
 
+    let start_time = Instant::now();
+
     while !window.should_close() {
         handle_input(&mut glfw, &mut window, &mut camera, &events);
+
+        animate(&mut car, start_time);
 
         renderer.render(&[&street_light, &car], &shader, &mut camera, width, height);
         window.swap_buffers();
@@ -104,6 +111,12 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn animate(car: &mut Solid, start_time: Instant) {
+    let time = Instant::now().duration_since(start_time);
+    let angle = ((time.as_millis() / 50) % 360) as f32;
+    car.rot.y = angle.to_radians();
 }
 
 fn handle_input(
