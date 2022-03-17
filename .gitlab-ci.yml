@@ -1,7 +1,7 @@
 stages:
   - build
 
-rust-latest:
+.rust-latest:
   stage: build
   image: rust:latest
   script:
@@ -9,11 +9,11 @@ rust-latest:
     - cargo test --verbose
 
 build-linux:
-  extends: .build
+  extends: .rust-latest
   tags:
     - linux
 
 build-windows:
-  extends: .build
+  extends: .rust-latest
   tags:
     - windows
