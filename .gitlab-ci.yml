@@ -8,11 +8,12 @@ rust-latest:
     - cargo build --verbose
     - cargo test --verbose
 
-rust-nightly:
-  stage: build
-  image: rustlang/rust:nightly
-  script:
-    - cargo build --verbose
-    - cargo test --verbose
-  allow_failure: true
-  
+build-linux:
+  extends: .build
+  tags:
+    - linux
+
+build-windows:
+  extends: .build
+  tags:
+    - windows
