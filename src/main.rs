@@ -8,14 +8,14 @@ use camera::Camera;
 use eyre::{Context, ContextCompat, Result};
 use glam::Vec3;
 use glfw::{Action, Context as GlfwContext, CursorMode, Key, OpenGlProfileHint, WindowHint};
+use model::Model;
 use renderer::Renderer;
 use shader::Shader;
-use solid::Solid;
 
 mod camera;
+mod model;
 mod renderer;
 mod shader;
-mod solid;
 
 fn main() -> Result<()> {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).wrap_err("Failed to create GLFW window.")?;
@@ -49,8 +49,8 @@ fn main() -> Result<()> {
         //gl::FrontFace(gl::CCW);
         gl::PolygonMode(gl::FRONT, gl::FILL);
 
-        gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        /* gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA); */
 
         gl::Enable(gl::DEBUG_OUTPUT);
         gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
@@ -76,35 +76,42 @@ fn main() -> Result<()> {
     let shader = Shader::from_file("shaders/vs.vert", "shaders/fs.frag")?;
 
     // Scene setup
+    let mut scene = Vec::new();
+
     // This work is based on "Lancia Fulvia rallye"
     // (https://sketchfab.com/3d-models/lancia-fulvia-rallye-5f02ef9e0daf481aba8c8b51216c0a6b)
     // by Floppy (https://sketchfab.com/fastolfe) licensed under CC-BY-NC-4.0
     // (http://creativecommons.org/licenses/by-nc/4.0/)
-    let mut car = Solid::from_obj_file("resources/lancia_fulvia_rallye/Fulvia.obj")
-        .wrap_err("Failed to load the object")?;
+    let car_gltf = Model::from_gltf("resources/lancia_fulvia_rallye/scene.gltf")?;
+    scene.push(&car_gltf);
+
+    //let piano = Model::from_gltf("resources/cristal_rose_piano/scene.gltf")?;
+    //scene.push(&piano);
+
+    //let duck = Model::from_gltf("resources/Duck.gltf")?;
+    //scene.push(&duck);
 
     // This work is based on "Street_Light"
     // (https://sketchfab.com/3d-models/street-light-16fc20d9d6564adb84ea27e35778da06)
     // by dodotcreatives (https://sketchfab.com/dodotcreatives)
     // licensed under CC-BY-4.0
     // (http://creativecommons.org/licenses/by/4.0/)
-    let mut street_light = Solid::from_obj_file("resources/street_light/StreetLight.obj")
-        .wrap_err("Failed to load the object")?;
 
-    street_light.pos = Vec3::new(-1., 0., 2.);
-    street_light.scale = Vec3::splat(0.3);
+
+    //street_light.pos = Vec3::new(-1., 0., 2.);
+    //street_light.scale = Vec3::splat(0.3);
 
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
-    let mut renderer = Renderer {};
+    let mut renderer = Renderer::new(shader);
 
     let start_time = Instant::now();
 
     while !window.should_close() {
         handle_input(&mut glfw, &mut window, &mut camera, &events);
 
-        animate(&mut car, start_time);
+        //animate(&mut car, start_time);
 
-        renderer.render(&[&street_light, &car], &shader, &mut camera, width, height);
+        renderer.render(&scene, &mut camera, width, height);
         window.swap_buffers();
 
         thread::sleep(Duration::from_millis(10));
@@ -113,11 +120,11 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn animate(car: &mut Solid, start_time: Instant) {
+/* fn animate(car: &mut ModelOld, start_time: Instant) {
     let time = Instant::now().duration_since(start_time);
     let angle = ((time.as_millis() / 50) % 360) as f32;
     car.rot.y = angle.to_radians();
-}
+} */
 
 fn handle_input(
     glfw: &mut glfw::Glfw,

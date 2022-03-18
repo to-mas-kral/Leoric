@@ -10,6 +10,7 @@ eyre = "0.6.7"
 tobj = "3.2.0"
 image = "0.24.1"
 gl = "0.14.0"
+gltf = "1.0.0"
 
 [profile.dev.package."*"]
 opt-level = 3

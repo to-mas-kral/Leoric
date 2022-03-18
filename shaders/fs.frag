@@ -21,8 +21,9 @@ uniform sampler2D myTexture;
 
 void main() {
     vec4 texColor = texture(myTexture, texCoords);
+    FragColor = texColor;
 
-    // ambient
+    /*// ambient
     vec4 ambientColor = vec4(material.ambient, 1.0) * texColor * 0.2;
 
     vec3 lightDir = normalize(lightPos - fragPos);
@@ -38,5 +39,5 @@ void main() {
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec4 specular = texColor * vec4(material.specular * spec, 1.0);
 
-    FragColor = ambientColor + diffuseColor + specular;
+    FragColor = ambientColor + diffuseColor + specular; */
 }
