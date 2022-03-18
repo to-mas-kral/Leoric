@@ -1,6 +1,6 @@
 use eyre::{eyre, Context, Result};
 use gl::types::GLenum;
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec4};
 use std::{fs, ptr};
 
 pub struct Shader {
@@ -40,6 +40,16 @@ impl Shader {
         }
     }
 
+    pub fn set_vec4(&self, vec: Vec4, name: &str) {
+        assert!(name.is_ascii());
+        assert!(name.ends_with("\0"));
+        unsafe {
+            let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
+            gl::Uniform4f(loc, vec.x, vec.y, vec.z, vec.w);
+        }
+    }
+
+    #[allow(unused)]
     pub fn set_f32(&self, v: f32, name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));

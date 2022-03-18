@@ -5,12 +5,12 @@ edition = "2021"
 
 [dependencies]
 glam = "0.20.2"
-glfw = "0.44.0"
 eyre = "0.6.7"
-tobj = "3.2.0"
-image = "0.24.1"
 gl = "0.14.0"
 gltf = "1.0.0"
+egui_sdl2_gl = "0.16.0"
+egui = "0.16"
+sdl2 = "0.35"
 
 [profile.dev.package."*"]
 opt-level = 3

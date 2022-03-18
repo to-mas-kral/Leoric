@@ -5,12 +5,21 @@ use std::{
 };
 
 use camera::Camera;
-use eyre::{Context, ContextCompat, Result};
+use egui::{panel::Side, Color32, Slider};
+use egui_backend::{DpiScaling, ShaderVersion};
+use eyre::Result;
 use glam::Vec3;
-use glfw::{Action, Context as GlfwContext, CursorMode, Key, OpenGlProfileHint, WindowHint};
 use model::Model;
 use renderer::Renderer;
+use sdl2::{
+    event::Event,
+    keyboard::Scancode,
+    video::{GLProfile, SwapInterval},
+    EventPump,
+};
 use shader::Shader;
+
+use egui_sdl2_gl as egui_backend;
 
 mod camera;
 mod model;
@@ -18,40 +27,49 @@ mod renderer;
 mod shader;
 
 fn main() -> Result<()> {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).wrap_err("Failed to create GLFW window.")?;
+    // TODO: error handling
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
 
     let width = 1 * 1920u32;
     let height = 1 * 1080u32;
 
-    let (mut window, events) = glfw
-        .create_window(
+    let window = video_subsystem
+        .window(
+            "PGRF2 Projekt - Skeletální Animace - Tomáš Král",
             width,
             height,
-            "PGRFII projekt - Tomáš Král",
-            glfw::WindowMode::Windowed,
         )
-        .context("Failed to create GLFW window.")?;
+        .opengl()
+        .resizable()
+        .position_centered()
+        .allow_highdpi()
+        .build()?;
 
     // Init OpenGL
-    glfw.window_hint(WindowHint::ContextVersionMajor(4));
-    glfw.window_hint(WindowHint::ContextVersionMinor(6));
-    glfw.window_hint(WindowHint::OpenGlProfile(OpenGlProfileHint::Core));
-    glfw.window_hint(WindowHint::OpenGlDebugContext(true));
-    glfw.window_hint(glfw::WindowHint::DoubleBuffer(true));
+    let _gl_ctx = window.gl_create_context().unwrap();
+    let gl_attr = video_subsystem.gl_attr();
+    gl_attr.set_context_major_version(4);
+    gl_attr.set_context_minor_version(6);
+    gl_attr.set_context_profile(GLProfile::Core);
+    gl_attr.set_context_flags().debug().set();
+    gl_attr.set_double_buffer(true);
+    gl_attr.set_multisample_samples(4);
 
-    gl::load_with(|s| window.get_proc_address(s) as *const _);
+    window
+        .subsystem()
+        .gl_set_swap_interval(SwapInterval::VSync)
+        .unwrap();
+
+    let shader_ver = ShaderVersion::Default;
+    // On linux use GLES SL 100+, like so:
+    //let shader_ver = ShaderVersion::Adaptive;
+    let (mut painter, mut egui_state) =
+        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
+    let mut egui_ctx = egui::CtxRef::default();
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
     unsafe {
-        gl::Viewport(0, 0, width as i32, height as i32);
-        gl::Enable(gl::DEPTH_TEST);
-        //TODO: test culling
-        //gl::Enable(gl::CULL_FACE);
-        //gl::CullFace(gl::BACK);
-        //gl::FrontFace(gl::CCW);
-        gl::PolygonMode(gl::FRONT, gl::FILL);
-
-        /* gl::Enable(gl::BLEND);
-        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA); */
-
         gl::Enable(gl::DEBUG_OUTPUT);
         gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
         gl::DebugMessageCallback(Some(gl_debug_callback), ptr::null());
@@ -66,53 +84,113 @@ fn main() -> Result<()> {
     };
 
     // Winodw init
-    window.set_cursor_pos((width as f64) / 2., (height as f64) / 2.);
-    window.set_framebuffer_size_polling(true);
-    window.set_all_polling(true);
-    window.set_raw_mouse_motion(true);
-    window.make_current();
+    //window.set_cursor_pos((width as f64) / 2., (height as f64) / 2.);
 
     // Shaders
     let shader = Shader::from_file("shaders/vs.vert", "shaders/fs.frag")?;
 
     // Scene setup
-    let mut scene = Vec::new();
+    let mut scene: Vec<&Model> = Vec::new();
 
     // This work is based on "Lancia Fulvia rallye"
     // (https://sketchfab.com/3d-models/lancia-fulvia-rallye-5f02ef9e0daf481aba8c8b51216c0a6b)
     // by Floppy (https://sketchfab.com/fastolfe) licensed under CC-BY-NC-4.0
     // (http://creativecommons.org/licenses/by-nc/4.0/)
-    let car_gltf = Model::from_gltf("resources/lancia_fulvia_rallye/scene.gltf")?;
-    scene.push(&car_gltf);
+    //let car_gltf = Model::from_gltf("resources/lancia_fulvia_rallye/scene.gltf")?;
+    //scene.push(&car_gltf);
 
-    //let piano = Model::from_gltf("resources/cristal_rose_piano/scene.gltf")?;
-    //scene.push(&piano);
+    let boiler = Model::from_gltf("resources/donkey_boiler/scene.gltf")?;
+    scene.push(&boiler);
 
-    //let duck = Model::from_gltf("resources/Duck.gltf")?;
-    //scene.push(&duck);
-
-    // This work is based on "Street_Light"
-    // (https://sketchfab.com/3d-models/street-light-16fc20d9d6564adb84ea27e35778da06)
-    // by dodotcreatives (https://sketchfab.com/dodotcreatives)
-    // licensed under CC-BY-4.0
-    // (http://creativecommons.org/licenses/by/4.0/)
-
-
-    //street_light.pos = Vec3::new(-1., 0., 2.);
-    //street_light.scale = Vec3::splat(0.3);
+    //let figure = Model::from_gltf("resources/RiggedSimple.gltf")?;
+    //scene.push(&figure);
 
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer::new(shader);
 
     let start_time = Instant::now();
 
-    while !window.should_close() {
-        handle_input(&mut glfw, &mut window, &mut camera, &events);
+    let mut ambient_light = 1f32;
 
-        //animate(&mut car, start_time);
+    'running: loop {
+        handle_inputs(&mut event_pump, &mut camera);
 
-        renderer.render(&scene, &mut camera, width, height);
-        window.swap_buffers();
+        //
+        // EGUI
+        //
+        egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
+        egui_ctx.begin_frame(egui_state.input.take());
+
+        egui::SidePanel::new(Side::Right, "side_panel").show(&egui_ctx, |ui| {
+            ui.add(
+                Slider::new(&mut ambient_light, 0.0..=1.0)
+                    .text("Ambientní osvětlení")
+                    .text_color(Color32::WHITE),
+            );
+            ui.separator();
+        });
+
+        let (egui_output, paint_cmds) = egui_ctx.end_frame();
+        // Process ouput
+        egui_state.process_output(&window, &egui_output);
+
+        // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
+        // if egui_ctx.used_size() != painter.screen_rect.size() {
+        //     println!("resized.");
+        //     let _size = egui_ctx.used_size();
+        //     let (w, h) = (_size.x as u32, _size.y as u32);
+        //     window.set_size(w, h).unwrap();
+        // }
+
+        let paint_jobs = egui_ctx.tessellate(paint_cmds);
+        //
+        // EGUI
+        //
+
+        unsafe {
+            //gl::Viewport(0, 0, width as i32, height as i32);
+            gl::Enable(gl::DEPTH_TEST);
+            //TODO: test culling
+            gl::Enable(gl::CULL_FACE);
+            gl::CullFace(gl::BACK);
+            gl::FrontFace(gl::CCW);
+            gl::PolygonMode(gl::FRONT, gl::FILL);
+
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
+
+        renderer.render(&scene, &mut camera, width, height, ambient_light);
+
+        unsafe {
+            // Disable backface culling, otherwise egui doesn't render correctly
+            gl::Disable(gl::DEPTH_TEST);
+            gl::Disable(gl::CULL_FACE);
+        }
+
+        if !egui_output.needs_repaint {
+            if let Some(event) = event_pump.wait_event_timeout(5) {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
+                    }
+                }
+            }
+        } else {
+            painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
+            window.gl_swap_window();
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => break 'running,
+                    _ => {
+                        // Process input event
+                        egui_state.process_input(&window, event, &mut painter);
+                    }
+                }
+            }
+        }
 
         thread::sleep(Duration::from_millis(10));
     }
@@ -120,49 +198,33 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/* fn animate(car: &mut ModelOld, start_time: Instant) {
-    let time = Instant::now().duration_since(start_time);
-    let angle = ((time.as_millis() / 50) % 360) as f32;
-    car.rot.y = angle.to_radians();
-} */
+fn handle_inputs(event_pump: &mut EventPump, camera: &mut Camera) {
+    let k = event_pump.keyboard_state();
 
-fn handle_input(
-    glfw: &mut glfw::Glfw,
-    window: &mut glfw::Window,
-    camera: &mut Camera,
-    events: &std::sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
-) {
-    glfw.poll_events();
-    // pressing a key only generates one event, use get_key() instead
-    if window.get_key(Key::W) == Action::Press {
+    if k.is_scancode_pressed(Scancode::W) {
         camera.move_forward(1.0);
     }
-    if window.get_key(Key::S) == Action::Press {
+
+    if k.is_scancode_pressed(Scancode::S) {
         camera.move_backward(1.0);
     }
-    if window.get_key(Key::A) == Action::Press {
+
+    if k.is_scancode_pressed(Scancode::A) {
         camera.strafe_left(1.0);
     }
-    if window.get_key(Key::D) == Action::Press {
+
+    if k.is_scancode_pressed(Scancode::D) {
         camera.strafe_right(1.0);
     }
-    for (_, event) in glfw::flush_messages(events) {
-        handle_window_event(window, event, camera);
-    }
-}
 
-fn handle_window_event(window: &mut glfw::Window, event: glfw::WindowEvent, camera: &mut Camera) {
-    let (mouse_x, mouse_y) = window.get_cursor_pos();
-    camera.adjust_look(mouse_x as f32, mouse_y as f32);
+    let mouse_state = event_pump.mouse_state();
+    let mouse_x = mouse_state.x() as f32;
+    let mouse_y = mouse_state.y() as f32;
 
-    match event {
-        glfw::WindowEvent::Key(key, _, Action::Press, _) => match key {
-            Key::Escape => window.set_should_close(true),
-            Key::Enter => window.set_cursor_mode(CursorMode::Disabled),
-            Key::RightShift => window.set_cursor_mode(CursorMode::Normal),
-            _ => (),
-        },
-        _ => {}
+    if mouse_state.left() {
+        camera.adjust_look(mouse_x, mouse_y);
+    } else {
+        camera.set_x_y(mouse_x, mouse_y)
     }
 }
 

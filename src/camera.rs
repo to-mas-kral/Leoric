@@ -67,6 +67,11 @@ impl Camera {
         self.strafe_right(-d);
     }
 
+    pub fn set_x_y(&mut self, new_x: f32, new_y: f32) {
+        self.current_x = new_x;
+        self.current_y = new_y;
+    }
+
     pub fn adjust_look(&mut self, new_x: f32, new_y: f32) {
         let dx = new_x - self.current_x;
         let dy = self.current_y - new_y;

@@ -2,7 +2,7 @@ use std::mem::size_of;
 
 use eyre::{eyre, Result};
 use gl::types::GLenum;
-use glam::{Mat4, Quat, Vec2, Vec3};
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 use gltf::{
     image::Format,
     mesh::util::ReadIndices,
@@ -11,20 +11,20 @@ use gltf::{
 };
 
 /// Image and vertex data of the asset
-struct DataBundle {
+pub struct DataBundle {
     /// Vertex data
     buffers: Vec<gltf::buffer::Data>,
     /// Texture data
     images: Vec<gltf::image::Data>,
     /// To keep track if which textures were already sent to the GPU
-    created_textures: Vec<Option<u32>>,
+    pub gl_textures: Vec<Option<Texture>>,
 }
 
 impl DataBundle {
     fn new(buffers: Vec<gltf::buffer::Data>, images: Vec<gltf::image::Data>) -> Self {
         Self {
             buffers,
-            created_textures: vec![Option::None; images.len()],
+            gl_textures: vec![Option::None; images.len()],
             images,
         }
     }
@@ -34,7 +34,7 @@ impl DataBundle {
 pub struct Model {
     /// Texture data points to vectors in this bundle
     #[allow(unused)]
-    bundle: DataBundle,
+    pub bundle: DataBundle,
     pub root: Node,
 }
 
@@ -163,11 +163,11 @@ impl Indices {
 }
 
 pub struct Primitive {
+    /// Texture index into the DataBundle textures vector
+    pub texture_index: Option<usize>,
+
     pub vao: Option<u32>,
-    pub gl_texture_id: Option<u32>,
-
     pub indices: Indices,
-
     pub positions: Vec<Vec3>,
     pub texcoords: Vec<Vec2>,
     pub normals: Vec<Vec3>,
@@ -203,6 +203,7 @@ impl Primitive {
         while let Some(texcoords_reader) = reader.read_tex_coords(texture_set) {
             if texture_set >= 1 {
                 //eprintln!("WARN: primitive has more than 1 texture coordinate set");
+                break;
             }
 
             texcoords = texcoords_reader
@@ -223,7 +224,7 @@ impl Primitive {
 
         let mut primitive = Self {
             vao: None,
-            gl_texture_id: None,
+            texture_index: None,
             indices,
             positions,
             texcoords,
@@ -294,8 +295,11 @@ impl Primitive {
             );
 
             // TODO: primitives without textures
-            let gl_texture_id = match material.pbr_metallic_roughness().base_color_texture() {
-                Some(tex_info) => Some(self.create_texture(&tex_info.texture(), bundle)),
+            let pbr = material.pbr_metallic_roughness();
+            let gl_texture_id = match pbr.base_color_texture() {
+                Some(tex_info) => {
+                    Some(self.create_texture(&tex_info.texture(), pbr.base_color_factor(), bundle))
+                }
                 None => None,
             };
 
@@ -306,7 +310,7 @@ impl Primitive {
             gl::BindTexture(gl::TEXTURE_2D, 0);
 
             self.vao = Some(vao);
-            self.gl_texture_id = gl_texture_id;
+            self.texture_index = gl_texture_id;
         }
     }
 
@@ -331,10 +335,15 @@ impl Primitive {
         }
     }
 
-    fn create_texture(&mut self, tex: &gltf::Texture, bundle: &mut DataBundle) -> u32 {
+    fn create_texture(
+        &mut self,
+        tex: &gltf::Texture,
+        base_color_factor: [f32; 4],
+        bundle: &mut DataBundle,
+    ) -> usize {
         let tex_index = tex.source().index();
-        if let Some(gl_tex_id) = bundle.created_textures[tex_index] {
-            return gl_tex_id;
+        if let Some(texture) = &bundle.gl_textures[tex_index] {
+            return tex_index;
         }
 
         let gl_tex_id = unsafe {
@@ -373,8 +382,9 @@ impl Primitive {
             texture
         };
 
-        bundle.created_textures[tex_index] = Some(gl_tex_id);
-        gl_tex_id
+        bundle.gl_textures[tex_index] =
+            Some(Texture::new(gl_tex_id, Vec4::from(base_color_factor)));
+        tex_index
     }
 
     fn set_texture_sampler(&self, sampler: &gltf::texture::Sampler) {
@@ -418,6 +428,21 @@ impl Primitive {
         unsafe {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrap_s as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrap_t as i32);
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Texture {
+    pub gl_id: u32,
+    pub base_color_factor: Vec4,
+}
+
+impl Texture {
+    pub fn new(gl_id: u32, base_color_factor: Vec4) -> Self {
+        Self {
+            gl_id,
+            base_color_factor,
         }
     }
 }
