@@ -1,0 +1,19 @@
+stages:
+  - build
+
+.rust-latest:
+  stage: build
+  image: rust:latest
+  script:
+    - cargo build --verbose
+    - cargo test --verbose
+
+build-linux:
+  extends: .rust-latest
+  tags:
+    - linux
+
+build-windows:
+  extends: .rust-latest
+  tags:
+    - windows
