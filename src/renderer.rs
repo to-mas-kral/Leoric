@@ -4,6 +4,7 @@ use glam::{Mat4, Vec3};
 
 use crate::{
     camera::Camera,
+    gui_state::GuiState,
     model::{DataBundle, Mesh, Model, Node},
     shader::Shader,
 };
@@ -19,11 +20,11 @@ impl Renderer {
 
     pub fn render(
         &mut self,
-        models: &[&Model],
+        models: &[Model],
         camera: &mut Camera,
         width: u32,
         height: u32,
-        ambient_light: f32,
+        gui_state: &GuiState,
     ) {
         unsafe {
             gl::ClearColor(0.1, 0.1, 0.1, 1.0);
@@ -41,8 +42,6 @@ impl Renderer {
             300.,
         );
 
-        self.shader.set_f32(ambient_light, "ambientK\0");
-
         self.shader.set_mat4(persp, "projection\0");
         self.shader.set_mat4(camera.get_view_mat(), "view\0");
 
@@ -50,24 +49,53 @@ impl Renderer {
         self.shader.set_vec3(camera.get_pos(), "viewPos\0");
 
         for model in models {
-            self.render_node(&model.root, &model.bundle, Mat4::IDENTITY);
+            let is_selected = Some(model.root.id) == gui_state.selected_node;
+            self.render_node(
+                &model.root,
+                &model.bundle,
+                Mat4::IDENTITY,
+                is_selected,
+                gui_state,
+            );
         }
     }
 
-    fn render_node(&mut self, node: &Node, bundle: &DataBundle, mut node_transform: Mat4) {
+    fn render_node(
+        &mut self,
+        node: &Node,
+        bundle: &DataBundle,
+        mut node_transform: Mat4,
+        is_selected: bool,
+        gui_state: &GuiState,
+    ) {
         node_transform *= node.transform;
 
         if let Some(mesh) = &node.mesh {
-            self.render_mesh(mesh, bundle, node_transform);
+            self.render_mesh(mesh, bundle, node_transform, is_selected, gui_state);
         }
 
-        for model in &node.children {
-            self.render_node(model, bundle, node_transform);
+        for node in &node.children {
+            // is_selected msut be true for children
+            let is_selected = is_selected || Some(node.id) == gui_state.selected_node;
+            self.render_node(node, bundle, node_transform, is_selected, gui_state);
         }
     }
 
-    fn render_mesh(&mut self, mesh: &Mesh, bundle: &DataBundle, node_transform: Mat4) {
+    fn render_mesh(
+        &mut self,
+        mesh: &Mesh,
+        bundle: &DataBundle,
+        node_transform: Mat4,
+        is_selected: bool,
+        gui_state: &GuiState,
+    ) {
         self.shader.set_mat4(node_transform, "model\0");
+
+        if is_selected || gui_state.selected_node.is_none() {
+            self.shader.set_f32(1.0, "globalAlpha\0")
+        } else {
+            self.shader.set_f32(0.075, "globalAlpha\0")
+        }
 
         for prim in &mesh.primitives {
             match (prim.vao, prim.texture_index) {

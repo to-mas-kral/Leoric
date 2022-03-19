@@ -1,73 +1,36 @@
 use std::{
     ffi::{c_void, CStr},
     ptr, thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use camera::Camera;
-use egui::{panel::Side, Color32, Slider};
-use egui_backend::{DpiScaling, ShaderVersion};
+use egui::{Button, CollapsingHeader, CtxRef, Label, Ui};
 use eyre::Result;
-use glam::Vec3;
-use model::Model;
+use glam::{Mat4, Vec3};
+use gui_state::GuiState;
+use model::{Model, Node};
 use renderer::Renderer;
-use sdl2::{
-    event::Event,
-    keyboard::Scancode,
-    video::{GLProfile, SwapInterval},
-    EventPump,
-};
+use sdl2::{keyboard::Scancode, EventPump};
 use shader::Shader;
 
-use egui_sdl2_gl as egui_backend;
+use window::MyWindow;
 
 mod camera;
+mod gui_state;
 mod model;
 mod renderer;
 mod shader;
+mod window;
 
 fn main() -> Result<()> {
-    // TODO: error handling
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+    let width = 2 * 1920u32;
+    let height = 2 * 1080u32;
 
-    let width = 1 * 1920u32;
-    let height = 1 * 1080u32;
-
-    let window = video_subsystem
-        .window(
-            "PGRF2 Projekt - Skeletální Animace - Tomáš Král",
-            width,
-            height,
-        )
-        .opengl()
-        .resizable()
-        .position_centered()
-        .allow_highdpi()
-        .build()?;
-
-    // Init OpenGL
-    let _gl_ctx = window.gl_create_context().unwrap();
-    let gl_attr = video_subsystem.gl_attr();
-    gl_attr.set_context_major_version(4);
-    gl_attr.set_context_minor_version(6);
-    gl_attr.set_context_profile(GLProfile::Core);
-    gl_attr.set_context_flags().debug().set();
-    gl_attr.set_double_buffer(true);
-    gl_attr.set_multisample_samples(4);
-
-    window
-        .subsystem()
-        .gl_set_swap_interval(SwapInterval::VSync)
-        .unwrap();
-
-    let shader_ver = ShaderVersion::Default;
-    // On linux use GLES SL 100+, like so:
-    //let shader_ver = ShaderVersion::Adaptive;
-    let (mut painter, mut egui_state) =
-        egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.0));
-    let mut egui_ctx = egui::CtxRef::default();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut window = MyWindow::new(
+        "PGRF2 Projekt - Skeletální Animace - Tomáš Král",
+        (width, height),
+    )?;
 
     unsafe {
         gl::Enable(gl::DEBUG_OUTPUT);
@@ -83,69 +46,20 @@ fn main() -> Result<()> {
         );
     };
 
-    // Winodw init
-    //window.set_cursor_pos((width as f64) / 2., (height as f64) / 2.);
-
     // Shaders
     let shader = Shader::from_file("shaders/vs.vert", "shaders/fs.frag")?;
 
-    // Scene setup
-    let mut scene: Vec<&Model> = Vec::new();
-
-    // This work is based on "Lancia Fulvia rallye"
-    // (https://sketchfab.com/3d-models/lancia-fulvia-rallye-5f02ef9e0daf481aba8c8b51216c0a6b)
-    // by Floppy (https://sketchfab.com/fastolfe) licensed under CC-BY-NC-4.0
-    // (http://creativecommons.org/licenses/by-nc/4.0/)
-    //let car_gltf = Model::from_gltf("resources/lancia_fulvia_rallye/scene.gltf")?;
-    //scene.push(&car_gltf);
-
-    let boiler = Model::from_gltf("resources/donkey_boiler/scene.gltf")?;
-    scene.push(&boiler);
-
-    //let figure = Model::from_gltf("resources/RiggedSimple.gltf")?;
-    //scene.push(&figure);
+    let scene = setup_scene()?;
 
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer::new(shader);
 
-    let start_time = Instant::now();
+    let mut gui_state = GuiState::new();
 
-    let mut ambient_light = 1f32;
+    'render_loop: loop {
+        handle_inputs(&mut window.event_pump, &mut camera);
 
-    'running: loop {
-        handle_inputs(&mut event_pump, &mut camera);
-
-        //
-        // EGUI
-        //
-        egui_state.input.time = Some(start_time.elapsed().as_secs_f64());
-        egui_ctx.begin_frame(egui_state.input.take());
-
-        egui::SidePanel::new(Side::Right, "side_panel").show(&egui_ctx, |ui| {
-            ui.add(
-                Slider::new(&mut ambient_light, 0.0..=1.0)
-                    .text("Ambientní osvětlení")
-                    .text_color(Color32::WHITE),
-            );
-            ui.separator();
-        });
-
-        let (egui_output, paint_cmds) = egui_ctx.end_frame();
-        // Process ouput
-        egui_state.process_output(&window, &egui_output);
-
-        // For default dpi scaling only, Update window when the size of resized window is very small (to avoid egui::CentralPanel distortions).
-        // if egui_ctx.used_size() != painter.screen_rect.size() {
-        //     println!("resized.");
-        //     let _size = egui_ctx.used_size();
-        //     let (w, h) = (_size.x as u32, _size.y as u32);
-        //     window.set_size(w, h).unwrap();
-        // }
-
-        let paint_jobs = egui_ctx.tessellate(paint_cmds);
-        //
-        // EGUI
-        //
+        window.begin_frame();
 
         unsafe {
             //gl::Viewport(0, 0, width as i32, height as i32);
@@ -160,42 +74,85 @@ fn main() -> Result<()> {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-        renderer.render(&scene, &mut camera, width, height, ambient_light);
+        renderer.render(&scene, &mut camera, width, height, &gui_state);
+        render_gui(&scene, &mut window.egui_ctx, &mut gui_state);
 
         unsafe {
-            // Disable backface culling, otherwise egui doesn't render correctly
+            // Disable backface culling and depth test, otherwise egui doesn't render correctly
             gl::Disable(gl::DEPTH_TEST);
             gl::Disable(gl::CULL_FACE);
         }
 
-        if !egui_output.needs_repaint {
-            if let Some(event) = event_pump.wait_event_timeout(5) {
-                match event {
-                    Event::Quit { .. } => break 'running,
-                    _ => {
-                        // Process input event
-                        egui_state.process_input(&window, event, &mut painter);
-                    }
-                }
-            }
-        } else {
-            painter.paint_jobs(None, paint_jobs, &egui_ctx.font_image());
-            window.gl_swap_window();
-            for event in event_pump.poll_iter() {
-                match event {
-                    Event::Quit { .. } => break 'running,
-                    _ => {
-                        // Process input event
-                        egui_state.process_input(&window, event, &mut painter);
-                    }
-                }
-            }
+        let should_quit = window.end_frame();
+        if should_quit {
+            break 'render_loop;
         }
 
         thread::sleep(Duration::from_millis(10));
     }
 
     Ok(())
+}
+
+fn render_gui(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
+    render_model_window(scene, egui_ctx, gui_state);
+}
+
+fn render_model_window(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
+    let model = &scene[0];
+
+    egui::Window::new("Model Hierarchy")
+        .scroll2([false, true])
+        .show(&egui_ctx, |ui| {
+            render_node(&model.root, ui, gui_state);
+        });
+}
+
+fn render_node(node: &Node, ui: &mut Ui, gui_state: &mut GuiState) {
+    let is_selected = Some(node.id) == gui_state.selected_node;
+
+    if node.children.is_empty() {
+        if ui
+            .add(Button::new(node.name.as_deref().unwrap_or("noname")))
+            .clicked()
+        {
+            gui_state.selected_node = Some(node.id);
+        }
+        return;
+    }
+
+    let default_open = node.children.len() == 1;
+
+    let response = CollapsingHeader::new(node.name.as_deref().unwrap_or("N/A"))
+        .id_source(node.id)
+        .default_open(default_open)
+        .selectable(true)
+        .selected(is_selected)
+        .show(ui, |ui| {
+            for child_node in &node.children {
+                render_node(child_node, ui, gui_state);
+            }
+        });
+
+    if response.header_response.clicked() {
+        gui_state.selected_node = Some(node.id);
+    }
+}
+
+fn setup_scene() -> Result<Vec<Model>> {
+    let mut scene = Vec::new();
+
+    let mut add = |path: &str| -> Result<()> {
+        let model = Model::from_gltf(path)?;
+        scene.push(model);
+        Ok(())
+    };
+
+    add("resources/lancia_fulvia_rallye/scene.gltf")?;
+    //add("resources/infantry/scene.gltf")?;
+    //scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
+
+    Ok(scene)
 }
 
 fn handle_inputs(event_pump: &mut EventPump, camera: &mut Camera) {
@@ -221,7 +178,7 @@ fn handle_inputs(event_pump: &mut EventPump, camera: &mut Camera) {
     let mouse_x = mouse_state.x() as f32;
     let mouse_y = mouse_state.y() as f32;
 
-    if mouse_state.left() {
+    if mouse_state.right() {
         camera.adjust_look(mouse_x, mouse_y);
     } else {
         camera.set_x_y(mouse_x, mouse_y)

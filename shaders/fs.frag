@@ -8,8 +8,6 @@ in vec3 fragPos;
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 
-uniform float ambientK;
-
 struct Material {
     vec3 ambient;
     vec3 diffuse;
@@ -22,10 +20,11 @@ uniform Material material;
 uniform sampler2D myTexture;
 uniform vec4 texBaseColorFactor;
 
+uniform float globalAlpha;
+
 void main() {
     vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
-    texColor.xyz *= ambientK;
-    FragColor = texColor;
+    FragColor = vec4(texColor.xyz, globalAlpha);
 
     /*// ambient
     vec4 ambientColor = vec4(material.ambient, 1.0) * texColor * 0.2;

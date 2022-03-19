@@ -85,7 +85,7 @@ impl Camera {
         self.azimut += x_offset;
         self.zenit += y_offset;
 
-        self.zenit = self.zenit.clamp(-90., 90.);
+        self.zenit = self.zenit.clamp(-89., 89.);
 
         self.adjust_dir();
     }

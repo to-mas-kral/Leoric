@@ -35,6 +35,7 @@ pub struct Model {
     /// Texture data points to vectors in this bundle
     #[allow(unused)]
     pub bundle: DataBundle,
+    /// An artifical root node
     pub root: Node,
 }
 
@@ -49,17 +50,28 @@ impl Model {
         }
         let scene = gltf.scenes().next().unwrap();
 
-        if scene.nodes().len() != 1 {
-            return Err(eyre!("GLTF scene contains more than 1 node"));
+        let mut id = 1;
+        let mut nodes = Vec::new();
+        for node in scene.nodes() {
+            let node = Node::from_gltf(&node, &mut bundle, &mut id)?;
+            id += 1;
+            nodes.push(node);
         }
-        let node = scene.nodes().next().unwrap();
-        let node = Node::from_gltf(&node, &mut bundle)?;
 
-        Ok(Model { bundle, root: node })
+        let root = Node {
+            id: 0,
+            children: nodes,
+            mesh: None,
+            transform: Mat4::IDENTITY,
+            name: Some("Root".to_string()),
+        };
+
+        Ok(Model { bundle, root })
     }
 }
 
 pub struct Node {
+    pub id: u32,
     pub children: Vec<Node>,
     pub mesh: Option<Mesh>,
     pub transform: Mat4,
@@ -67,11 +79,14 @@ pub struct Node {
 }
 
 impl Node {
-    fn from_gltf(node: &gltf::Node, bundle: &mut DataBundle) -> Result<Self> {
+    fn from_gltf(node: &gltf::Node, bundle: &mut DataBundle, id: &mut u32) -> Result<Self> {
         let mut children = Vec::new();
 
+        let my_id = *id;
+
         for child_node in node.children() {
-            let node = Node::from_gltf(&child_node, bundle)?;
+            *id += 1;
+            let node = Node::from_gltf(&child_node, bundle, id)?;
             children.push(node);
         }
 
@@ -94,6 +109,7 @@ impl Node {
         };
 
         Ok(Self {
+            id: my_id,
             children,
             mesh,
             transform,
@@ -342,7 +358,7 @@ impl Primitive {
         bundle: &mut DataBundle,
     ) -> usize {
         let tex_index = tex.source().index();
-        if let Some(texture) = &bundle.gl_textures[tex_index] {
+        if bundle.gl_textures[tex_index].is_some() {
             return tex_index;
         }
 
