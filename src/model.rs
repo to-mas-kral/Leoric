@@ -10,6 +10,10 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
 };
 
+use self::joints::Joints;
+
+mod joints;
+
 /// Image and vertex data of the asset
 pub struct DataBundle {
     /// Vertex data
@@ -17,7 +21,7 @@ pub struct DataBundle {
     /// Texture data
     images: Vec<gltf::image::Data>,
     /// To keep track if which textures were already sent to the GPU
-    pub gl_textures: Vec<Option<Texture>>,
+    pub gl_textures: Vec<Option<GlTexture>>,
 }
 
 impl DataBundle {
@@ -30,7 +34,7 @@ impl DataBundle {
     }
 }
 
-/// This represents a top-level Node in a gltf hierarchy
+/// This represents a top-level Node in a gltf hierarchy and contains necessary data for rendering
 pub struct Model {
     /// Texture data points to vectors in this bundle
     #[allow(unused)]
@@ -53,7 +57,7 @@ impl Model {
         let mut id = 1;
         let mut nodes = Vec::new();
         for node in scene.nodes() {
-            let node = Node::from_gltf(&node, &mut bundle, &mut id)?;
+            let node = Node::from_gltf(&node, &mut bundle, &mut id, &scene)?;
             id += 1;
             nodes.push(node);
         }
@@ -64,29 +68,40 @@ impl Model {
             mesh: None,
             transform: Mat4::IDENTITY,
             name: Some("Root".to_string()),
+            joints: None,
         };
 
         Ok(Model { bundle, root })
     }
 }
 
+/// A Node represents a subset of a gltf scene
+/// Nodes form a tree hierarchy
 pub struct Node {
     pub id: u32,
+    pub name: Option<String>,
+
     pub children: Vec<Node>,
     pub mesh: Option<Mesh>,
     pub transform: Mat4,
-    pub name: Option<String>,
+
+    pub joints: Option<Joints>,
 }
 
 impl Node {
-    fn from_gltf(node: &gltf::Node, bundle: &mut DataBundle, id: &mut u32) -> Result<Self> {
+    fn from_gltf(
+        node: &gltf::Node,
+        bundle: &mut DataBundle,
+        id: &mut u32,
+        scene: &gltf::Scene,
+    ) -> Result<Self> {
         let mut children = Vec::new();
 
         let my_id = *id;
 
         for child_node in node.children() {
             *id += 1;
-            let node = Node::from_gltf(&child_node, bundle, id)?;
+            let node = Node::from_gltf(&child_node, bundle, id, scene)?;
             children.push(node);
         }
 
@@ -108,19 +123,27 @@ impl Node {
             ),
         };
 
+        let joints = if let Some(skin) = node.skin() {
+            Some(Joints::from_gltf(node, bundle, &skin, scene)?)
+        } else {
+            None
+        };
+
         Ok(Self {
             id: my_id,
             children,
             mesh,
             transform,
             name: node.name().map(|n| n.to_owned()),
+            joints,
         })
     }
 }
 
+/// A 'Mesh' contains multiple sub-meshes (called Primitives in the gltf parlance)
 pub struct Mesh {
     pub primitives: Vec<Primitive>,
-    name: Option<String>,
+    pub name: Option<String>,
 }
 
 impl Mesh {
@@ -178,9 +201,10 @@ impl Indices {
     }
 }
 
+/// A Primitive represents a single 'mesh' in the normal meaning of that word
+/// (a collection of vertices with a specific topology like Trianglesd or Lines)
 pub struct Primitive {
-    /// Texture index into the DataBundle textures vector
-    pub texture_index: Option<usize>,
+    pub texture_info: PrimTexInfo,
 
     pub vao: Option<u32>,
     pub indices: Indices,
@@ -198,7 +222,6 @@ impl Primitive {
         }
 
         let reader = primitive.reader(|buffer| Some(&bundle.buffers[buffer.index()]));
-
         let positions = reader
             .read_positions()
             .ok_or(eyre!("primitive doesn't containt positions"))?
@@ -240,7 +263,9 @@ impl Primitive {
 
         let mut primitive = Self {
             vao: None,
-            texture_index: None,
+            texture_info: PrimTexInfo::None {
+                base_color_factor: Vec4::splat(1.),
+            },
             indices,
             positions,
             texcoords,
@@ -263,10 +288,10 @@ impl Primitive {
         let mut normals = 0;
         let mut vao = 0;
 
-        assert!(
-            self.positions.len() == self.texcoords.len()
-                && self.normals.len() == self.texcoords.len()
-        );
+        //assert!(
+        //    self.positions.len() == self.texcoords.len()
+        //        && self.normals.len() == self.texcoords.len()
+        //);
 
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
@@ -310,13 +335,17 @@ impl Primitive {
                 gl::STATIC_DRAW,
             );
 
-            // TODO: primitives without textures
             let pbr = material.pbr_metallic_roughness();
-            let gl_texture_id = match pbr.base_color_texture() {
+            let texture_index = match pbr.base_color_texture() {
                 Some(tex_info) => {
-                    Some(self.create_texture(&tex_info.texture(), pbr.base_color_factor(), bundle))
+                    let texture_index =
+                        self.create_texture(&tex_info.texture(), pbr.base_color_factor(), bundle);
+                    PrimTexInfo::Some { texture_index }
                 }
-                None => None,
+                None => {
+                    let base_color_factor = Vec4::from(pbr.base_color_factor());
+                    PrimTexInfo::None { base_color_factor }
+                }
             };
 
             // Unbind buffers
@@ -326,7 +355,7 @@ impl Primitive {
             gl::BindTexture(gl::TEXTURE_2D, 0);
 
             self.vao = Some(vao);
-            self.texture_index = gl_texture_id;
+            self.texture_info = texture_index;
         }
     }
 
@@ -399,7 +428,7 @@ impl Primitive {
         };
 
         bundle.gl_textures[tex_index] =
-            Some(Texture::new(gl_tex_id, Vec4::from(base_color_factor)));
+            Some(GlTexture::new(gl_tex_id, Vec4::from(base_color_factor)));
         tex_index
     }
 
@@ -448,13 +477,23 @@ impl Primitive {
     }
 }
 
+/// Texture info for a primitive
+/// If the primitive has a texture, an index to the top-level texture vector in the DataBundle is given
+/// If not, the base_color_factor serves as the object color
+pub enum PrimTexInfo {
+    None { base_color_factor: Vec4 },
+    Some { texture_index: usize },
+}
+
+/// A structure that represents an already created OpenGL texture
+/// base_color_factor is a color multiplier
 #[derive(Clone)]
-pub struct Texture {
+pub struct GlTexture {
     pub gl_id: u32,
     pub base_color_factor: Vec4,
 }
 
-impl Texture {
+impl GlTexture {
     pub fn new(gl_id: u32, base_color_factor: Vec4) -> Self {
         Self {
             gl_id,

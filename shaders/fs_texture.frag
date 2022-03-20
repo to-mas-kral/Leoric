@@ -19,12 +19,18 @@ uniform Material material;
 
 uniform sampler2D myTexture;
 uniform vec4 texBaseColorFactor;
+uniform uint useTexture;
 
 uniform float globalAlpha;
 
 void main() {
-    vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
-    FragColor = vec4(texColor.xyz, globalAlpha);
+    if (useTexture == 1) {
+        //vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
+        //FragColor = vec4(texColor.xyz, texColor.w * globalAlpha);
+        FragColor = vec4(1.0);
+    } else {
+        FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha);
+    }
 
     /*// ambient
     vec4 ambientColor = vec4(material.ambient, 1.0) * texColor * 0.2;

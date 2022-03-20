@@ -5,9 +5,9 @@ use std::{
 };
 
 use camera::Camera;
-use egui::{Button, CollapsingHeader, CtxRef, Label, Ui};
+use egui::{CollapsingHeader, CtxRef, Ui};
 use eyre::Result;
-use glam::{Mat4, Vec3};
+use glam::Vec3;
 use gui_state::GuiState;
 use model::{Model, Node};
 use renderer::Renderer;
@@ -24,8 +24,8 @@ mod shader;
 mod window;
 
 fn main() -> Result<()> {
-    let width = 2 * 1920u32;
-    let height = 2 * 1080u32;
+    let width = (1.5 * 1920.) as u32;
+    let height = (1.5 * 1080.) as u32;
 
     let mut window = MyWindow::new(
         "PGRF2 Projekt - Skeletální Animace - Tomáš Král",
@@ -47,7 +47,7 @@ fn main() -> Result<()> {
     };
 
     // Shaders
-    let shader = Shader::from_file("shaders/vs.vert", "shaders/fs.frag")?;
+    let shader = Shader::from_file("shaders/vs_texture.vert", "shaders/fs_texture.frag")?;
 
     let scene = setup_scene()?;
 
@@ -75,7 +75,7 @@ fn main() -> Result<()> {
         }
 
         renderer.render(&scene, &mut camera, width, height, &gui_state);
-        render_gui(&scene, &mut window.egui_ctx, &mut gui_state);
+        gui(&scene, &mut window.egui_ctx, &mut gui_state);
 
         unsafe {
             // Disable backface culling and depth test, otherwise egui doesn't render correctly
@@ -94,63 +94,80 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn render_gui(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
-    render_model_window(scene, egui_ctx, gui_state);
+fn gui(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
+    gui_model_window(scene, egui_ctx, gui_state);
 }
 
-fn render_model_window(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
+fn gui_model_window(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
     let model = &scene[0];
 
     egui::Window::new("Model Hierarchy")
         .scroll2([false, true])
+        .resizable(true)
         .show(&egui_ctx, |ui| {
-            render_node(&model.root, ui, gui_state);
+            gui_node(&model.root, ui, gui_state);
         });
 }
 
-fn render_node(node: &Node, ui: &mut Ui, gui_state: &mut GuiState) {
+fn gui_node(node: &Node, ui: &mut Ui, gui_state: &mut GuiState) {
     let is_selected = Some(node.id) == gui_state.selected_node;
-
-    if node.children.is_empty() {
-        if ui
-            .add(Button::new(node.name.as_deref().unwrap_or("noname")))
-            .clicked()
-        {
-            gui_state.selected_node = Some(node.id);
-        }
-        return;
-    }
-
     let default_open = node.children.len() == 1;
 
-    let response = CollapsingHeader::new(node.name.as_deref().unwrap_or("N/A"))
-        .id_source(node.id)
-        .default_open(default_open)
-        .selectable(true)
-        .selected(is_selected)
-        .show(ui, |ui| {
-            for child_node in &node.children {
-                render_node(child_node, ui, gui_state);
-            }
-        });
+    ui.horizontal(|ui| {
+        let node_name = node.name.as_deref().unwrap_or("N/A");
 
-    if response.header_response.clicked() {
-        gui_state.selected_node = Some(node.id);
-    }
+        if !&node.children.is_empty() {
+            let response = CollapsingHeader::new(node_name)
+                .id_source(node.id)
+                .default_open(default_open)
+                .selectable(true)
+                .selected(is_selected)
+                .show(ui, |ui| {
+                    for child_node in &node.children {
+                        gui_node(child_node, ui, gui_state);
+                    }
+                });
+
+            if response.header_response.clicked() {
+                gui_state.selected_node = Some(node.id);
+            }
+        } else {
+            if ui.add(egui::Button::new(node_name)).clicked() {
+                gui_state.selected_node = Some(node.id);
+            }
+        }
+
+        if let Some(mesh) = &node.mesh {
+            ui.separator();
+
+            let mesh_name = mesh.name.as_deref().unwrap_or("N/A");
+            ui.add(egui::Label::new(mesh_name));
+
+            ui.end_row()
+        }
+    });
 }
 
 fn setup_scene() -> Result<Vec<Model>> {
     let mut scene = Vec::new();
 
     let mut add = |path: &str| -> Result<()> {
+        let start = std::time::Instant::now();
+
         let model = Model::from_gltf(path)?;
+
+        let time = std::time::Instant::now().duration_since(start);
+        println!("Loading took '{time:?}'");
+
         scene.push(model);
         Ok(())
     };
 
-    add("resources/lancia_fulvia_rallye/scene.gltf")?;
-    //add("resources/infantry/scene.gltf")?;
-    //scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
+    /* add("resources/infantry/scene.gltf")?;
+       scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
+    */
+    add("resources/RiggedFigure.gltf")?;
+    //add("resources/RiggedSimple.gltf")?;
 
     Ok(scene)
 }

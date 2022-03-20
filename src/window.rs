@@ -47,7 +47,6 @@ impl MyWindow {
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_flags().debug().set();
         gl_attr.set_double_buffer(true);
-        gl_attr.set_multisample_samples(4);
 
         window
             .subsystem()

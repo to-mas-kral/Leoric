@@ -3,6 +3,8 @@ use gl::types::GLenum;
 use glam::{Mat4, Vec3, Vec4};
 use std::{fs, ptr};
 
+/// Represents a created OpenGL shader
+/// Allows setting uniforms with set_<> methods
 pub struct Shader {
     pub id: u32,
 }
@@ -56,6 +58,16 @@ impl Shader {
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform1f(loc, v);
+        }
+    }
+
+    #[allow(unused)]
+    pub fn set_u32(&self, v: u32, name: &str) {
+        assert!(name.is_ascii());
+        assert!(name.ends_with("\0"));
+        unsafe {
+            let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
+            gl::Uniform1ui(loc, v);
         }
     }
 

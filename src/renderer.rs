@@ -5,7 +5,7 @@ use glam::{Mat4, Vec3};
 use crate::{
     camera::Camera,
     gui_state::GuiState,
-    model::{DataBundle, Mesh, Model, Node},
+    model::{DataBundle, Mesh, Model, Node, PrimTexInfo},
     shader::Shader,
 };
 
@@ -48,6 +48,8 @@ impl Renderer {
         self.shader.set_vec3(Vec3::new(-1., 2., 2.), "lightPos\0");
         self.shader.set_vec3(camera.get_pos(), "viewPos\0");
 
+        self.shader.set_u32(0, "useTexture\0");
+
         for model in models {
             let is_selected = Some(model.root.id) == gui_state.selected_node;
             self.render_node(
@@ -68,6 +70,8 @@ impl Renderer {
         is_selected: bool,
         gui_state: &GuiState,
     ) {
+        // TODO: Only the joint transforms are applied to the skinned mesh;
+        // the transform of the skinned mesh node MUST be ignored.
         node_transform *= node.transform;
 
         if let Some(mesh) = &node.mesh {
@@ -75,7 +79,7 @@ impl Renderer {
         }
 
         for node in &node.children {
-            // is_selected msut be true for children
+            // is_selected must be true for children
             let is_selected = is_selected || Some(node.id) == gui_state.selected_node;
             self.render_node(node, bundle, node_transform, is_selected, gui_state);
         }
@@ -98,13 +102,28 @@ impl Renderer {
         }
 
         for prim in &mesh.primitives {
-            match (prim.vao, prim.texture_index) {
-                (Some(vao), Some(texture_index)) => unsafe {
-                    let texture = &bundle.gl_textures[texture_index].as_ref().unwrap();
-                    self.shader
-                        .set_vec4(texture.base_color_factor, "texBaseColorFactor\0");
+            match (prim.vao, &prim.texture_info) {
+                (Some(vao), prim_tex_info) => unsafe {
+                    match prim_tex_info {
+                        #[rustfmt::skip]
+                        // TODO: draw both plain-color objects and textured ones
+                        PrimTexInfo::None { base_color_factor } => {
+                            self
+                            .shader
+                            .set_vec4(*base_color_factor, "texBaseColorFactor\0");
 
-                    gl::BindTexture(gl::TEXTURE_2D, texture.gl_id);
+                            self.shader.set_u32(0, "useTexture\0");
+                        },
+                        PrimTexInfo::Some { texture_index } => {
+                            let texture = &bundle.gl_textures[*texture_index].as_ref().unwrap();
+                            self.shader
+                                .set_vec4(texture.base_color_factor, "texBaseColorFactor\0");
+                            self.shader.set_u32(1, "useTexture\0");
+
+                            gl::BindTexture(gl::TEXTURE_2D, texture.gl_id);
+                        }
+                    };
+
                     gl::BindVertexArray(vao);
 
                     gl::DrawElements(
