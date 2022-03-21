@@ -7,7 +7,7 @@ use std::{
 use camera::Camera;
 use egui::{CollapsingHeader, CtxRef, Ui};
 use eyre::Result;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use gui_state::GuiState;
 use model::{Model, Node};
 use renderer::Renderer;
@@ -22,6 +22,7 @@ mod model;
 mod renderer;
 mod shader;
 mod window;
+mod gui;
 
 fn main() -> Result<()> {
     let width = (1.5 * 1920.) as u32;
@@ -49,7 +50,7 @@ fn main() -> Result<()> {
     // Shaders
     let shader = Shader::from_file("shaders/vs_texture.vert", "shaders/fs_texture.frag")?;
 
-    let scene = setup_scene()?;
+    let mut scene = setup_scene()?;
 
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer::new(shader);
@@ -74,8 +75,8 @@ fn main() -> Result<()> {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-        renderer.render(&scene, &mut camera, width, height, &gui_state);
-        gui(&scene, &mut window.egui_ctx, &mut gui_state);
+        renderer.render(&mut scene, &mut camera, width, height, &gui_state);
+        gui::gui(&mut scene, &mut window.egui_ctx, &mut gui_state);
 
         unsafe {
             // Disable backface culling and depth test, otherwise egui doesn't render correctly
@@ -94,60 +95,6 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn gui(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
-    gui_model_window(scene, egui_ctx, gui_state);
-}
-
-fn gui_model_window(scene: &[Model], egui_ctx: &mut CtxRef, gui_state: &mut GuiState) {
-    let model = &scene[0];
-
-    egui::Window::new("Model Hierarchy")
-        .scroll2([false, true])
-        .resizable(true)
-        .show(&egui_ctx, |ui| {
-            gui_node(&model.root, ui, gui_state);
-        });
-}
-
-fn gui_node(node: &Node, ui: &mut Ui, gui_state: &mut GuiState) {
-    let is_selected = Some(node.id) == gui_state.selected_node;
-    let default_open = node.children.len() == 1;
-
-    ui.horizontal(|ui| {
-        let node_name = node.name.as_deref().unwrap_or("N/A");
-
-        if !&node.children.is_empty() {
-            let response = CollapsingHeader::new(node_name)
-                .id_source(node.id)
-                .default_open(default_open)
-                .selectable(true)
-                .selected(is_selected)
-                .show(ui, |ui| {
-                    for child_node in &node.children {
-                        gui_node(child_node, ui, gui_state);
-                    }
-                });
-
-            if response.header_response.clicked() {
-                gui_state.selected_node = Some(node.id);
-            }
-        } else {
-            if ui.add(egui::Button::new(node_name)).clicked() {
-                gui_state.selected_node = Some(node.id);
-            }
-        }
-
-        if let Some(mesh) = &node.mesh {
-            ui.separator();
-
-            let mesh_name = mesh.name.as_deref().unwrap_or("N/A");
-            ui.add(egui::Label::new(mesh_name));
-
-            ui.end_row()
-        }
-    });
-}
-
 fn setup_scene() -> Result<Vec<Model>> {
     let mut scene = Vec::new();
 
@@ -163,11 +110,13 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
-    /* add("resources/infantry/scene.gltf")?;
-       scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
-    */
+    add("resources/infantry/Infantry.gltf")?;
+    //scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
     add("resources/RiggedFigure.gltf")?;
-    //add("resources/RiggedSimple.gltf")?;
+    add("resources/CesiumMan.glb")?;
+    add("resources/RiggedSimple.gltf")?;
+    add("resources/BrainStem.glb")?;
+    add("resources/pakistan_girl_-_animated/Girl.gltf")?;
 
     Ok(scene)
 }

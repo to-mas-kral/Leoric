@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use std::{mem::size_of, path::Path};
 
 use eyre::{eyre, Result};
 use gl::types::GLenum;
@@ -10,7 +10,7 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
 };
 
-use self::joints::Joints;
+pub use self::joints::{Joint, Joints};
 
 mod joints;
 
@@ -41,11 +41,16 @@ pub struct Model {
     pub bundle: DataBundle,
     /// An artifical root node
     pub root: Node,
+    pub name: String,
 }
 
 impl Model {
     pub fn from_gltf(path: &str) -> Result<Model> {
         let (gltf, buffers, images) = gltf::import(path)?;
+        let name = Path::new(path)
+            .file_name()
+            .map(|osstr| osstr.to_string_lossy().to_string())
+            .unwrap_or("N/A".to_string());
 
         let mut bundle = DataBundle::new(buffers, images);
 
@@ -71,7 +76,7 @@ impl Model {
             joints: None,
         };
 
-        Ok(Model { bundle, root })
+        Ok(Model { bundle, root, name })
     }
 }
 
@@ -116,11 +121,16 @@ impl Node {
                 translation,
                 rotation,
                 scale,
-            } => Mat4::from_scale_rotation_translation(
-                Vec3::from(scale),
-                Quat::from_array(rotation),
-                Vec3::from(translation),
-            ),
+            } => {
+                Mat4::from_translation(Vec3::from(translation))
+                    * Mat4::from_quat(Quat::from_xyzw(
+                        rotation[0],
+                        rotation[1],
+                        rotation[2],
+                        rotation[3],
+                    ))
+                    * Mat4::from_scale(Vec3::from(scale))
+            }
         };
 
         let joints = if let Some(skin) = node.skin() {
@@ -211,6 +221,8 @@ pub struct Primitive {
     pub positions: Vec<Vec3>,
     pub texcoords: Vec<Vec2>,
     pub normals: Vec<Vec3>,
+    pub joints: Vec<[u16; 4]>,
+    pub weights: Vec<[f32; 4]>,
 }
 
 impl Primitive {
@@ -259,6 +271,18 @@ impl Primitive {
             .map(|n| Vec3::from(n))
             .collect();
 
+        let joints = reader
+            .read_joints(0)
+            .ok_or(eyre!("primitive doesn't contain joint indices"))?
+            .into_u16()
+            .collect();
+
+        let weights = reader
+            .read_weights(0)
+            .ok_or(eyre!("primitive doesn't weights"))?
+            .into_f32()
+            .collect();
+
         let material = primitive.material();
 
         let mut primitive = Self {
@@ -270,6 +294,8 @@ impl Primitive {
             positions,
             texcoords,
             normals,
+            joints,
+            weights,
         };
 
         primitive.create_buffers(&material, bundle);
@@ -280,18 +306,17 @@ impl Primitive {
     const POS_ATTRIB_INDEX: u32 = 0;
     const TEXCOORDS_ATTRIB_INDEX: u32 = 1;
     const NORMALS_ATTRIB_INDEX: u32 = 2;
+    const JOINTS_ATTRIB_INDEX: u32 = 3;
+    const WEIGHTS_ATTRIB_INDEX: u32 = 4;
 
     fn create_buffers(&mut self, material: &gltf::Material, bundle: &mut DataBundle) {
         let mut positions = 0;
         let mut texcoords = 0;
         let mut indices = 0;
         let mut normals = 0;
+        let mut joints = 0;
+        let mut weights = 0;
         let mut vao = 0;
-
-        //assert!(
-        //    self.positions.len() == self.texcoords.len()
-        //        && self.normals.len() == self.texcoords.len()
-        //);
 
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
@@ -321,6 +346,24 @@ impl Primitive {
                 &self.normals,
                 3,
                 Self::NORMALS_ATTRIB_INDEX,
+                gl::FLOAT,
+            );
+
+            // Joints
+            Self::create_buf(
+                &mut joints,
+                &self.joints,
+                4,
+                Self::JOINTS_ATTRIB_INDEX,
+                gl::UNSIGNED_SHORT,
+            );
+
+            // Weights
+            Self::create_buf(
+                &mut weights,
+                &self.weights,
+                4,
+                Self::WEIGHTS_ATTRIB_INDEX,
                 gl::FLOAT,
             );
 

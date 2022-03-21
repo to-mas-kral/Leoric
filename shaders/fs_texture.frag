@@ -19,34 +19,17 @@ uniform Material material;
 
 uniform sampler2D myTexture;
 uniform vec4 texBaseColorFactor;
-uniform uint useTexture;
+uniform uint drawingPoints;
 
 uniform float globalAlpha;
 
 void main() {
-    if (useTexture == 1) {
+    if (drawingPoints == 1) {
         //vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
         //FragColor = vec4(texColor.xyz, texColor.w * globalAlpha);
-        FragColor = vec4(1.0);
+        FragColor = texBaseColorFactor;
     } else {
-        FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha);
+        FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha * 0.3);
+        //discard;
     }
-
-    /*// ambient
-    vec4 ambientColor = vec4(material.ambient, 1.0) * texColor * 0.2;
-
-    vec3 lightDir = normalize(lightPos - fragPos);
-    vec3 norm = normalize(normal);
-
-    // diffuse
-    float diffuseK = max(dot(norm, lightDir), 0);
-    vec4 diffuseColor = texColor * vec4(diffuseK * material.diffuse, 1.0);
-
-    // specular
-    vec3 viewDir = normalize(viewPos - fragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-    vec4 specular = texColor * vec4(material.specular * spec, 1.0);
-
-    FragColor = ambientColor + diffuseColor + specular; */
 }
