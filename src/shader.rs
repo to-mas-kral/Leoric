@@ -33,6 +33,18 @@ impl Shader {
         }
     }
 
+    pub fn set_mat4_arr(&self, mats: &[Mat4], name: &str) {
+        assert!(name.is_ascii());
+        assert!(name.ends_with("\0"));
+
+        let mats: Vec<[f32; 16]> = mats.iter().map(|m| m.to_cols_array()).collect();
+
+        unsafe {
+            let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
+            gl::UniformMatrix4fv(loc, mats.len() as i32, gl::FALSE, mats.as_ptr() as _);
+        }
+    }
+
     pub fn set_vec3(&self, vec: Vec3, name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));

@@ -57,7 +57,7 @@ impl MyWindow {
         // On linux use GLES SL 100+, like so:
         //let shader_ver = ShaderVersion::Adaptive;
         let (painter, egui_state) =
-            egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(2.5));
+            egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(1.5));
         let egui_ctx = egui::CtxRef::default();
         let event_pump = sdl_context.event_pump().map_err(|e| eyre!("{e}"))?;
 

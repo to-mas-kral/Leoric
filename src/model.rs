@@ -221,7 +221,7 @@ pub struct Primitive {
     pub positions: Vec<Vec3>,
     pub texcoords: Vec<Vec2>,
     pub normals: Vec<Vec3>,
-    pub joints: Vec<[u16; 4]>,
+    pub joints: Vec<[u32; 4]>,
     pub weights: Vec<[f32; 4]>,
 }
 
@@ -275,6 +275,7 @@ impl Primitive {
             .read_joints(0)
             .ok_or(eyre!("primitive doesn't contain joint indices"))?
             .into_u16()
+            .map(|j| j.map(|i| i as u32))
             .collect();
 
         let weights = reader
@@ -355,7 +356,7 @@ impl Primitive {
                 &self.joints,
                 4,
                 Self::JOINTS_ATTRIB_INDEX,
-                gl::UNSIGNED_SHORT,
+                gl::UNSIGNED_INT,
             );
 
             // Weights

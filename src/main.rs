@@ -110,13 +110,13 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
-    add("resources/infantry/Infantry.gltf")?;
+    //add("resources/infantry/Infantry.gltf")?;
     //scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
-    add("resources/RiggedFigure.gltf")?;
-    add("resources/CesiumMan.glb")?;
-    add("resources/RiggedSimple.gltf")?;
-    add("resources/BrainStem.glb")?;
-    add("resources/pakistan_girl_-_animated/Girl.gltf")?;
+    add("resources/RiggedFigure.glb")?;
+    //add("resources/CesiumMan.glb")?;
+    //add("resources/RiggedSimple.gltf")?;
+    //add("resources/BrainStem.glb")?;
+    //add("resources/pakistan_girl_-_animated/Girl.gltf")?;
 
     Ok(scene)
 }

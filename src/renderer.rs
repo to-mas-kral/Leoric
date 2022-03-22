@@ -100,14 +100,20 @@ impl Renderer {
         is_selected: bool,
         gui_state: &GuiState,
     ) {
-        println!("Node: {:?}, {}", node.name, node.transform);
+        //println!("Node: {:?}, {}", node.name, node.transform);
         let next_level_transform = outer_transform * node.transform;
 
         if let Some(joints) = &mut node.joints {
-            println!("Node with a skin: {:?}", &node.name);
+            //println!("Node with a skin: {:?}", &node.name);
+            for joint in &mut joints.joints {
+                joint.recalc_transform();
+            }
+
             if gui_state.debug_joints {
                 self.render_joints(&mut joints.joints, next_level_transform);
             }
+
+            self.recalc_skin_matrices(&mut joints.joints, next_level_transform);
         }
 
         if let Some(mesh) = &node.mesh {
@@ -177,27 +183,23 @@ impl Renderer {
     }
 
     fn render_joints(&self, joints: &mut [Joint], outer_transform: Mat4) {
-        for joint in joints.iter_mut() {
-            joint.recalc_transform();
-        }
-
         let mut world_transforms = vec![Mat4::IDENTITY; joints.len()];
 
-        println!("Outer: transform: {}", outer_transform);
-        println!(
-            "Joint 0 inverse-inverse-bind-matrix: {}",
-            joints[0].inverse_bind_matrix.inverse()
-        );
-        println!(
-            "outer_transform * ^ matrix = {}",
-            outer_transform * joints[0].inverse_bind_matrix.inverse()
-        );
+        //println!("Outer: transform: {}", outer_transform);
+        //println!(
+        //    "Joint 0 inverse-inverse-bind-matrix: {}",
+        //    joints[0].inverse_bind_matrix.inverse()
+        //);
+        //println!(
+        //    "outer_transform * ^ matrix = {}",
+        //    outer_transform * joints[0].inverse_bind_matrix.inverse()
+        //);
 
-        println!("Joint 0 transform-mnatrix: {}", joints[0].transform);
-        println!(
-            "outer_transform  * ^ matrix= {}",
-            outer_transform * joints[0].transform
-        );
+        //println!("Joint 0 transform-mnatrix: {}", joints[0].transform);
+        //println!(
+        //    "outer_transform  * ^ matrix= {}",
+        //    outer_transform * joints[0].transform
+        //);
 
         // https://github.com/KhronosGroup/glTF/issues/1665#issuecomment-529272521
         for i in 0..joints.len() {
@@ -209,11 +211,11 @@ impl Renderer {
             world_transforms[i] = transform;
         }
 
-        println!("Joint[0] transform: {}", world_transforms[0]);
+        //println!("Joint[0] transform: {}", world_transforms[0]);
 
         for (i, joint) in joints.iter().enumerate() {
             let bind_transform = outer_transform * joint.inverse_bind_matrix.inverse();
-            println!("Bind transform: {}", bind_transform);
+            //println!("Bind transform: {}", bind_transform);
 
             self.shader.set_mat4(world_transforms[i], "model\0");
             self.shader.set_u32(1, "drawingPoints\0");
@@ -247,6 +249,44 @@ impl Renderer {
 
             self.shader.set_u32(0, "drawingPoints\0");
         }
+    }
+
+    pub fn recalc_skin_matrices(&self, joints: &[Joint], outer_transform: Mat4) {
+        let mut world_transforms = vec![Mat4::IDENTITY; joints.len()];
+
+        // https://github.com/KhronosGroup/glTF/issues/1665#issuecomment-529272521
+        for i in 0..joints.len() {
+            let transform = match joints[i].parent {
+                Some(parent_index) => world_transforms[parent_index] * joints[i].transform,
+                None => outer_transform * joints[i].transform,
+            };
+
+            world_transforms[i] = transform;
+        }
+
+        let mut skinning_matrices = Vec::new();
+        skinning_matrices.reserve(joints.len());
+
+        for (i, joint) in joints.iter().enumerate() {
+            let parent_transform = match joint.parent {
+                Some(j) => joints[j].transform,
+                None => outer_transform,
+            };
+
+            let skinning_matrix = world_transforms[i] * joint.inverse_bind_matrix;
+
+            /* println!("MAT: {}", world_transforms[i]);
+            println!("MAT: {}", parent_transform); */
+
+            if joint.name == "arm_joint_L_2" {
+                println!("MAT: {}", skinning_matrix);
+            }
+            //skinning_matrices.push(skinning_matrix);
+            skinning_matrices.push(Mat4::IDENTITY);
+        }
+
+        self.shader
+            .set_mat4_arr(&skinning_matrices, "jointMatrices\0");
     }
 }
 
