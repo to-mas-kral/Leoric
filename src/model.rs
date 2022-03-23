@@ -134,7 +134,7 @@ impl Node {
         };
 
         let joints = if let Some(skin) = node.skin() {
-            Some(Joints::from_gltf(node, bundle, &skin, scene)?)
+            Some(Joints::from_gltf(bundle, &skin, scene)?)
         } else {
             None
         };
@@ -275,7 +275,7 @@ impl Primitive {
             .read_joints(0)
             .ok_or(eyre!("primitive doesn't contain joint indices"))?
             .into_u16()
-            .map(|j| j.map(|i| i as u32))
+            .map(|j| j.map(|ji| ji as u32))
             .collect();
 
         let weights = reader
@@ -311,62 +311,23 @@ impl Primitive {
     const WEIGHTS_ATTRIB_INDEX: u32 = 4;
 
     fn create_buffers(&mut self, material: &gltf::Material, bundle: &mut DataBundle) {
-        let mut positions = 0;
-        let mut texcoords = 0;
         let mut indices = 0;
-        let mut normals = 0;
-        let mut joints = 0;
-        let mut weights = 0;
         let mut vao = 0;
 
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
 
-            // Positions
-            Self::create_buf(
-                &mut positions,
-                &self.positions,
-                3,
-                Self::POS_ATTRIB_INDEX,
-                gl::FLOAT,
-            );
-
-            // Texcoords
-            Self::create_buf(
-                &mut texcoords,
-                &self.texcoords,
-                2,
-                Self::TEXCOORDS_ATTRIB_INDEX,
-                gl::FLOAT,
-            );
-
-            // Normals
-            Self::create_buf(
-                &mut normals,
-                &self.normals,
-                3,
-                Self::NORMALS_ATTRIB_INDEX,
-                gl::FLOAT,
-            );
-
-            // Joints
-            Self::create_buf(
-                &mut joints,
-                &self.joints,
-                4,
-                Self::JOINTS_ATTRIB_INDEX,
-                gl::UNSIGNED_INT,
-            );
-
-            // Weights
-            Self::create_buf(
-                &mut weights,
-                &self.weights,
-                4,
-                Self::WEIGHTS_ATTRIB_INDEX,
-                gl::FLOAT,
-            );
+            let _positions =
+                Self::create_float_buf(&self.positions, 3, Self::POS_ATTRIB_INDEX, gl::FLOAT);
+            let _texcoords =
+                Self::create_float_buf(&self.texcoords, 2, Self::TEXCOORDS_ATTRIB_INDEX, gl::FLOAT);
+            let _normals =
+                Self::create_float_buf(&self.normals, 3, Self::NORMALS_ATTRIB_INDEX, gl::FLOAT);
+            let _joints =
+                Self::create_int_buf(&self.joints, 4, Self::JOINTS_ATTRIB_INDEX, gl::UNSIGNED_INT);
+            let _weights =
+                Self::create_float_buf(&self.weights, 4, Self::WEIGHTS_ATTRIB_INDEX, gl::FLOAT);
 
             // Indices
             gl::GenBuffers(1, &mut indices);
@@ -403,10 +364,23 @@ impl Primitive {
         }
     }
 
-    fn create_buf<T: Copy>(id: &mut u32, buffer: &[T], stride: i32, attrib_index: u32, typ: u32) {
+    /// Create an opengl buffer with floating-point content.
+    ///
+    /// 'buffer' is a reference to a slice of T.
+    ///
+    /// 'components', 'attrib index' and 'typ' have the same meaning as the respective
+    /// arguments in glVertexAttribPointer.
+    fn create_float_buf<T: Copy>(
+        buffer: &[T],
+        components: i32,
+        attrib_index: u32,
+        typ: u32,
+    ) -> u32 {
+        let mut id: u32 = 0;
+
         unsafe {
-            gl::GenBuffers(1, id);
-            gl::BindBuffer(gl::ARRAY_BUFFER, *id);
+            gl::GenBuffers(1, &mut id as *mut _);
+            gl::BindBuffer(gl::ARRAY_BUFFER, id);
 
             let buffer_size = buffer.len() * size_of::<T>();
 
@@ -419,9 +393,42 @@ impl Primitive {
                 gl::STATIC_DRAW,
             );
 
-            gl::VertexAttribPointer(attrib_index, stride, typ, gl::FALSE, 0, 0 as _);
+            gl::VertexAttribPointer(attrib_index, components, typ, gl::FALSE, 0, 0 as _);
             gl::EnableVertexAttribArray(attrib_index);
         }
+
+        id
+    }
+
+    /// Create an opengl buffer with integer content.
+    ///
+    /// 'buffer' is a reference to a slice of T.
+    ///
+    /// 'components', 'attrib index' and 'typ' have the same meaning as the respective
+    /// arguments in glVertexAttribPointer.
+    fn create_int_buf<T: Copy>(buffer: &[T], components: i32, attrib_index: u32, typ: u32) -> u32 {
+        let mut id: u32 = 0;
+
+        unsafe {
+            gl::GenBuffers(1, &mut id as *mut _);
+            gl::BindBuffer(gl::ARRAY_BUFFER, id);
+
+            let buffer_size = buffer.len() * size_of::<T>();
+
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                buffer_size as isize,
+                // TODO: check for safety - the layout of Vec3 is #[repr(C)] (struct of 3 floats),
+                // so it should be correct
+                buffer.as_ptr() as _,
+                gl::STATIC_DRAW,
+            );
+
+            gl::VertexAttribIPointer(attrib_index, components, typ, 0, 0 as _);
+            gl::EnableVertexAttribArray(attrib_index);
+        }
+
+        id
     }
 
     fn create_texture(
@@ -524,6 +531,7 @@ impl Primitive {
 /// Texture info for a primitive
 /// If the primitive has a texture, an index to the top-level texture vector in the DataBundle is given
 /// If not, the base_color_factor serves as the object color
+// TODO: remove this PrimTexInfo -> Texture indirection
 pub enum PrimTexInfo {
     None { base_color_factor: Vec4 },
     Some { texture_index: usize },

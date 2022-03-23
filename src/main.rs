@@ -5,11 +5,10 @@ use std::{
 };
 
 use camera::Camera;
-use egui::{CollapsingHeader, CtxRef, Ui};
 use eyre::Result;
-use glam::{Mat4, Vec3};
-use gui_state::GuiState;
-use model::{Model, Node};
+use glam::Vec3;
+use gui::Gui;
+use model::Model;
 use renderer::Renderer;
 use sdl2::{keyboard::Scancode, EventPump};
 use shader::Shader;
@@ -17,12 +16,11 @@ use shader::Shader;
 use window::MyWindow;
 
 mod camera;
-mod gui_state;
+mod gui;
 mod model;
 mod renderer;
 mod shader;
 mod window;
-mod gui;
 
 fn main() -> Result<()> {
     let width = (1.5 * 1920.) as u32;
@@ -55,7 +53,7 @@ fn main() -> Result<()> {
     let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
     let mut renderer = Renderer::new(shader);
 
-    let mut gui_state = GuiState::new();
+    let mut gui = Gui::new();
 
     'render_loop: loop {
         handle_inputs(&mut window.event_pump, &mut camera);
@@ -75,8 +73,8 @@ fn main() -> Result<()> {
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-        renderer.render(&mut scene, &mut camera, width, height, &gui_state);
-        gui::gui(&mut scene, &mut window.egui_ctx, &mut gui_state);
+        renderer.render(&mut scene, &mut camera, width, height, &gui);
+        gui.render(&mut scene, &mut window.egui_ctx);
 
         unsafe {
             // Disable backface culling and depth test, otherwise egui doesn't render correctly
@@ -104,19 +102,18 @@ fn setup_scene() -> Result<Vec<Model>> {
         let model = Model::from_gltf(path)?;
 
         let time = std::time::Instant::now().duration_since(start);
-        println!("Loading took '{time:?}'");
+        println!("Loading '{path}' took '{time:?}'");
 
         scene.push(model);
         Ok(())
     };
 
-    //add("resources/infantry/Infantry.gltf")?;
-    //scene[0].root.transform = Mat4::from_rotation_x(90f32.to_radians());
-    add("resources/RiggedFigure.glb")?;
-    //add("resources/CesiumMan.glb")?;
-    //add("resources/RiggedSimple.gltf")?;
-    //add("resources/BrainStem.glb")?;
-    //add("resources/pakistan_girl_-_animated/Girl.gltf")?;
+    add("resources/infantry/Infantry.gltf")?;
+    add("resources/RiggedFigure.gltf")?;
+    add("resources/CesiumMan.glb")?;
+    add("resources/RiggedSimple.gltf")?;
+    add("resources/BrainStem.glb")?;
+    add("resources/pakistan_girl_-_animated/Girl.gltf")?;
 
     Ok(scene)
 }

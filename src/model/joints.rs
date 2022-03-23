@@ -1,6 +1,6 @@
-use eyre::{eyre, Result};
+use eyre::Result;
 use glam::{Mat4, Quat, Vec3};
-use gltf::{mesh::util::joints, scene::Transform};
+use gltf::scene::Transform;
 
 use super::DataBundle;
 
@@ -10,7 +10,6 @@ pub struct Joints {
 
 impl Joints {
     pub fn from_gltf(
-        node: &gltf::Node,
         bundle: &mut DataBundle,
         skin: &gltf::Skin,
         scene: &gltf::Scene,
@@ -131,7 +130,7 @@ impl Joints {
 pub struct Joint {
     /// An index to the parent node (None if this joint is the root)
     pub parent: Option<usize>,
-    /// The matrix that transforms this node to the root of the model
+    /// The matrix that transforms this node to the origin
     pub inverse_bind_matrix: Mat4,
     /// Local translation relative to the parent joint
     pub translation: Vec3,

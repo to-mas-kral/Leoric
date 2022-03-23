@@ -56,8 +56,20 @@ impl MyWindow {
         let shader_ver = ShaderVersion::Default;
         // On linux use GLES SL 100+, like so:
         //let shader_ver = ShaderVersion::Adaptive;
+
+        // It's better if we calculate this ourselves
+        let custom_dpi = {
+            if dim.0 <= 1280 && dim.1 <= 720 {
+                1.0
+            } else if dim.0 <= 1920 && dim.1 <= 1080 {
+                1.5
+            } else {
+                2.5
+            }
+        };
+
         let (painter, egui_state) =
-            egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(1.5));
+            egui_backend::with_sdl2(&window, shader_ver, DpiScaling::Custom(custom_dpi));
         let egui_ctx = egui::CtxRef::default();
         let event_pump = sdl_context.event_pump().map_err(|e| eyre!("{e}"))?;
 

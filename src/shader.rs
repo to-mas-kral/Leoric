@@ -37,11 +37,16 @@ impl Shader {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));
 
-        let mats: Vec<[f32; 16]> = mats.iter().map(|m| m.to_cols_array()).collect();
+        let mats_flat: Vec<f32> = mats.iter().map(|m| m.to_cols_array()).flatten().collect();
 
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
-            gl::UniformMatrix4fv(loc, mats.len() as i32, gl::FALSE, mats.as_ptr() as _);
+            gl::UniformMatrix4fv(
+                loc,
+                mats.len() as i32,
+                gl::FALSE,
+                mats_flat.as_ptr() as _,
+            );
         }
     }
 

@@ -10,7 +10,7 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
-uniform mat4 jointMatrices[64];
+uniform mat4 jointMatrices[128]; // TODO: Shader Storage Buffer Objects.
 uniform uint drawingPoints;
 
 out vec2 texCoords;
@@ -24,17 +24,19 @@ void main() {
         modelTransform = model;
     } else {
         modelTransform =
-            inWeights.x * jointMatrices[inJoints.x] +
-            inWeights.y * jointMatrices[inJoints.y] +
-            inWeights.z * jointMatrices[inJoints.z] +
-            inWeights.w * jointMatrices[inJoints.w];
+            (inWeights.x * jointMatrices[int(inJoints.x)]) +
+            (inWeights.y * jointMatrices[int(inJoints.y)]) +
+            (inWeights.z * jointMatrices[int(inJoints.z)]) +
+            (inWeights.w * jointMatrices[int(inJoints.w)]);
 
-        modelTransform = model;
+        //modelTransform = mat4(1.0);
     }
 
     gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
 
     texCoords = inTexcoords;
+
+    // FIMXE: light calculations model matrices
     normal = mat3(transpose(inverse(model))) * inNormal;
     fragPos = vec3(model * vec4(inPos, 1.0));
 }
