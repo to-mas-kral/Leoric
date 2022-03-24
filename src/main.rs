@@ -23,13 +23,7 @@ mod shader;
 mod window;
 
 fn main() -> Result<()> {
-    let width = (1.5 * 1920.) as u32;
-    let height = (1.5 * 1080.) as u32;
-
-    let mut window = MyWindow::new(
-        "PGRF2 Projekt - Skeletální Animace - Tomáš Král",
-        (width, height),
-    )?;
+    let mut window = MyWindow::new("PGRF2 Projekt - Skeletální Animace - Tomáš Král")?;
 
     unsafe {
         gl::Enable(gl::DEBUG_OUTPUT);
@@ -50,7 +44,13 @@ fn main() -> Result<()> {
 
     let mut scene = setup_scene()?;
 
-    let mut camera = Camera::new(Vec3::new(0., 0., 0.), 0.3, 0.05, width, height);
+    let mut camera = Camera::new(
+        Vec3::new(0., 0., 0.),
+        0.3,
+        0.05,
+        window.width,
+        window.height,
+    );
     let mut renderer = Renderer::new(shader);
 
     let mut gui = Gui::new();
@@ -67,13 +67,18 @@ fn main() -> Result<()> {
             gl::Enable(gl::CULL_FACE);
             gl::CullFace(gl::BACK);
             gl::FrontFace(gl::CCW);
-            gl::PolygonMode(gl::FRONT, gl::FILL);
+
+            if gui.wireframe {
+                gl::PolygonMode(gl::FRONT, gl::LINE);
+            } else {
+                gl::PolygonMode(gl::FRONT, gl::FILL);
+            }
 
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-        renderer.render(&mut scene, &mut camera, width, height, &gui);
+        renderer.render(&mut scene, &mut camera, &window, &gui);
         gui.render(&mut scene, &mut window.egui_ctx);
 
         unsafe {
@@ -109,10 +114,10 @@ fn setup_scene() -> Result<Vec<Model>> {
     };
 
     add("resources/infantry/Infantry.gltf")?;
-    add("resources/RiggedFigure.gltf")?;
+    //add("resources/RiggedFigure.gltf")?;
     add("resources/CesiumMan.glb")?;
-    add("resources/RiggedSimple.gltf")?;
-    add("resources/BrainStem.glb")?;
+    //add("resources/RiggedSimple.gltf")?;
+    //add("resources/BrainStem.glb")?;
     add("resources/pakistan_girl_-_animated/Girl.gltf")?;
 
     Ok(scene)

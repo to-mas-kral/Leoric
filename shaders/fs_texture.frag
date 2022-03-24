@@ -29,9 +29,10 @@ void main() {
         //FragColor = vec4(texColor.xyz, texColor.w * globalAlpha);
         FragColor = texBaseColorFactor;
     } else {
-        //vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
-        //FragColor = vec4(texColor.xyz, texColor.w * globalAlpha  * 0.7);
-        FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha * 0.7);
+        vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
+        FragColor = vec4(texColor.xyz, texColor.w * globalAlpha  * 0.5);
+        FragColor = vec4(texColor.xyz, 1.0);
+        //FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha * 0.7);
         //discard;
     }
 }

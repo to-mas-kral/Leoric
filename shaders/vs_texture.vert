@@ -28,11 +28,13 @@ void main() {
             (inWeights.y * jointMatrices[int(inJoints.y)]) +
             (inWeights.z * jointMatrices[int(inJoints.z)]) +
             (inWeights.w * jointMatrices[int(inJoints.w)]);
-
-        //modelTransform = mat4(1.0);
     }
 
     gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
+
+    if (drawingPoints == 1) {
+        gl_Position.z = 0.0;
+    }
 
     texCoords = inTexcoords;
 

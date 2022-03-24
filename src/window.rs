@@ -5,7 +5,7 @@ use egui_backend::{painter::Painter, DpiScaling, EguiStateHandler};
 use egui_sdl2_gl::ShaderVersion;
 use eyre::{eyre, Result};
 use sdl2::{
-    event::Event,
+    event::{Event, WindowEvent},
     video::Window,
     video::{GLContext, GLProfile, SwapInterval},
     EventPump, Sdl, VideoSubsystem,
@@ -24,15 +24,21 @@ pub struct MyWindow {
     egui_state: EguiStateHandler,
     painter: Painter,
     start_time: Instant,
+
+    pub width: u32,
+    pub height: u32,
 }
 
 impl MyWindow {
-    pub fn new(title: &str, dim: (u32, u32)) -> Result<Self> {
+    pub fn new(title: &str) -> Result<Self> {
         let sdl_context = sdl2::init().map_err(|e| eyre!("{e}"))?;
         let video_subsystem = sdl_context.video().map_err(|e| eyre!("{e}"))?;
 
+        let width = (1.0 * 1920.) as u32;
+        let height = (1.0 * 1080.) as u32;
+
         let window = video_subsystem
-            .window(title, dim.0, dim.1)
+            .window(title, width, height)
             .opengl()
             .resizable()
             .position_centered()
@@ -59,9 +65,9 @@ impl MyWindow {
 
         // It's better if we calculate this ourselves
         let custom_dpi = {
-            if dim.0 <= 1280 && dim.1 <= 720 {
+            if width <= 1280 && height <= 720 {
                 1.0
-            } else if dim.0 <= 1920 && dim.1 <= 1080 {
+            } else if width <= 1920 && height <= 1080 {
                 1.5
             } else {
                 2.5
@@ -83,6 +89,8 @@ impl MyWindow {
             egui_state,
             painter,
             start_time: Instant::now(),
+            width,
+            height,
         })
     }
 
@@ -90,9 +98,9 @@ impl MyWindow {
         self.egui_state.input.time = Some(self.start_time.elapsed().as_secs_f64());
         self.egui_ctx.begin_frame(self.egui_state.input.take());
 
-        let mut visuals = egui::Visuals::default();
-        visuals.override_text_color = Some(Color32::WHITE);
-        self.egui_ctx.set_visuals(visuals);
+        //let mut visuals = egui::Visuals::default();
+        //visuals.override_text_color = Some(Color32::WHITE);
+        //self.egui_ctx.set_visuals(visuals);
 
         /* egui::SidePanel::new(Side::Right, "side_panel")
         .frame(Frame::group(&self.egui_ctx.style()).margin((10., 10.)))
@@ -129,6 +137,14 @@ impl MyWindow {
         for event in self.event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => return true,
+                Event::Window {
+                    timestamp: _,
+                    window_id: _,
+                    win_event: WindowEvent::Resized(new_width, new_height),
+                } => {
+                    self.width = new_width as u32;
+                    self.height = new_height as u32;
+                }
                 _ => {
                     self.egui_state
                         .process_input(&self.window, event, &mut self.painter);

@@ -7,6 +7,7 @@ use crate::{
     gui::Gui,
     model::{DataBundle, Joint, Mesh, Model, Node, PrimTexInfo},
     shader::Shader,
+    window::MyWindow,
 };
 
 pub struct Renderer {
@@ -52,12 +53,11 @@ impl Renderer {
         &mut self,
         models: &mut [Model],
         camera: &mut Camera,
-        width: u32,
-        height: u32,
+        window: &MyWindow,
         gui_state: &Gui,
     ) {
         unsafe {
-            gl::ClearColor(0.1, 0.1, 0.1, 1.0);
+            gl::ClearColor(0.15, 0.15, 0.15, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
             gl::UseProgram(self.shader.id);
@@ -67,7 +67,7 @@ impl Renderer {
         // TODO: možná glu perspective
         let persp = Mat4::perspective_rh(
             f32::to_radians(60.),
-            width as f32 / height as f32,
+            window.width as f32 / window.height as f32,
             0.1,
             300.,
         );
@@ -214,26 +214,25 @@ impl Renderer {
 
     fn debug_joints(&self, joints: &[Joint], outer_transform: Mat4, world_transforms: &[Mat4]) {
         for (i, joint) in joints.iter().enumerate() {
-            let bind_transform = outer_transform * joint.inverse_bind_matrix.inverse();
-
             self.shader.set_mat4(world_transforms[i], "model\0");
             self.shader.set_u32(1, "drawingPoints\0");
             self.shader
-                .set_vec4(Vec4::new(0.7, 0.2, 0.2, 1.0), "texBaseColorFactor\0");
+                .set_vec4(Vec4::new(0.85, 0.08, 0.7, 1.0), "texBaseColorFactor\0");
 
             if i == 0 {
                 self.shader
-                    .set_vec4(Vec4::new(0.2, 0.2, 0.7, 1.0), "texBaseColorFactor\0");
+                    .set_vec4(Vec4::new(0.2, 0.35, 0.7, 1.0), "texBaseColorFactor\0");
             }
 
             unsafe {
                 gl::BindVertexArray(self.points_vao);
-                gl::PointSize(10.);
+                gl::PointSize(7.);
                 gl::DrawArrays(gl::POINTS, 0, 1);
                 gl::BindVertexArray(0);
             }
 
-            // Bind transform for debug
+            /* // Bind transform for debug
+            let bind_transform = outer_transform * joint.inverse_bind_matrix.inverse();
             self.shader.set_mat4(bind_transform, "model\0");
 
             self.shader
@@ -244,7 +243,7 @@ impl Renderer {
                 gl::PointSize(10.);
                 gl::DrawArrays(gl::POINTS, 0, 1);
                 gl::BindVertexArray(0);
-            }
+            } */
 
             self.shader.set_u32(0, "drawingPoints\0");
         }

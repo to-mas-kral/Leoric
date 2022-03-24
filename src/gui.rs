@@ -9,6 +9,8 @@ pub struct Gui {
     pub selected_model: usize,
     /// If joints should e visible inside of the mesh
     pub debug_joints: bool,
+    /// If polygons should be drawn as wireframes
+    pub wireframe: bool,
 }
 
 impl Gui {
@@ -17,6 +19,7 @@ impl Gui {
             selected_node: None,
             selected_model: 0,
             debug_joints: true,
+            wireframe: false,
         }
     }
 
@@ -148,6 +151,12 @@ impl Gui {
             if ui.button("Debug joints").clicked() {
                 self.debug_joints = !self.debug_joints;
             }
+
+            if ui.button("Wireframe").clicked() {
+                self.wireframe = !self.wireframe;
+            }
+
+            egui::global_dark_light_mode_switch(ui);
         });
     }
 }
