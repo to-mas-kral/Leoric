@@ -113,6 +113,7 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
+    add("resources/dragon_flying/scene.gltf")?;
     add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
     add("resources/toon_cat_free/Cat.gltf")?;
     add("resources/pakistan_girl_-_animated/Girl.gltf")?;
