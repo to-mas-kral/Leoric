@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use egui::{Color32, CtxRef};
+use egui::CtxRef;
 use egui_backend::{painter::Painter, DpiScaling, EguiStateHandler};
 use egui_sdl2_gl::ShaderVersion;
 use eyre::{eyre, Result};
@@ -34,8 +34,12 @@ impl MyWindow {
         let sdl_context = sdl2::init().map_err(|e| eyre!("{e}"))?;
         let video_subsystem = sdl_context.video().map_err(|e| eyre!("{e}"))?;
 
-        let width = (1.0 * 1920.) as u32;
-        let height = (1.0 * 1080.) as u32;
+        let size = video_subsystem
+            .display_bounds(0)
+            .map_err(|e| eyre!("{e}"))?;
+
+        let width = (size.width() as f32 * 0.7) as u32;
+        let height = (size.height() as f32 * 0.7) as u32;
 
         let window = video_subsystem
             .window(title, width, height)
@@ -56,7 +60,7 @@ impl MyWindow {
 
         window
             .subsystem()
-            .gl_set_swap_interval(SwapInterval::VSync)
+            .gl_set_swap_interval(SwapInterval::Immediate)
             .map_err(|e| eyre!("{e}"))?;
 
         let shader_ver = ShaderVersion::Default;
@@ -131,7 +135,7 @@ impl MyWindow {
             } */
         } else {
             self.painter
-                .paint_jobs(None, paint_jobs, &self.egui_ctx.font_image());
+            .paint_jobs(None, paint_jobs, &self.egui_ctx.font_image());
             self.window.gl_swap_window();
         }
         for event in self.event_pump.poll_iter() {

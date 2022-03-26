@@ -5,7 +5,7 @@ pub struct Camera {
     dir: Vec3,
     up: Vec3,
 
-    move_speed: f32,
+    pub move_speed: f32,
     look_sensitivity: f32,
 
     current_x: f32,

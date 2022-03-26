@@ -10,7 +10,7 @@ uniform mat4 projection;
 uniform mat4 view;
 uniform mat4 model;
 
-uniform mat4 jointMatrices[128]; // TODO: Shader Storage Buffer Objects.
+uniform mat4 jointMatrices[192]; // TODO: Shader Storage Buffer Objects.
 uniform uint drawingPoints;
 
 out vec2 texCoords;
@@ -23,6 +23,9 @@ void main() {
     if (drawingPoints == 1) {
         modelTransform = model;
     } else {
+        // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy
+        // "Only the joint transforms are applied to the skinned mesh; the transform of the
+        // skinned mesh node MUST be ignored."
         modelTransform =
             (inWeights.x * jointMatrices[int(inJoints.x)]) +
             (inWeights.y * jointMatrices[int(inJoints.y)]) +
@@ -31,10 +34,6 @@ void main() {
     }
 
     gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
-
-    if (drawingPoints == 1) {
-        gl_Position.z = 0.0;
-    }
 
     texCoords = inTexcoords;
 

@@ -6,13 +6,19 @@ use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 use gltf::{
     image::Format,
     mesh::util::ReadIndices,
-    scene::Transform,
+    scene::Transform as GTransform,
     texture::{MagFilter, MinFilter, WrappingMode},
 };
 
-pub use self::joints::{Joint, Joints};
-
+mod animation;
 mod joints;
+mod transform;
+
+pub use self::{
+    animation::{Animation, AnimationControl, AnimationTransform, AnimationTransforms, Animations},
+    joints::{Joint, Joints},
+    transform::Transform,
+};
 
 /// Image and vertex data of the asset
 pub struct DataBundle {
@@ -42,6 +48,7 @@ pub struct Model {
     /// An artifical root node
     pub root: Node,
     pub name: String,
+    pub animations: Animations,
 }
 
 impl Model {
@@ -67,27 +74,36 @@ impl Model {
             nodes.push(node);
         }
 
+        let animations = Animation::from_gltf(&gltf, &bundle)?;
+
         let root = Node {
-            id: 0,
+            index: usize::MAX,
             children: nodes,
             mesh: None,
             transform: Mat4::IDENTITY,
-            name: Some("Root".to_string()),
+            name: "Root".to_string(),
             joints: None,
         };
 
-        Ok(Model { bundle, root, name })
+        Ok(Model {
+            bundle,
+            root,
+            name,
+            animations,
+        })
     }
 }
 
 /// A Node represents a subset of a gltf scene
 /// Nodes form a tree hierarchy
 pub struct Node {
-    pub id: u32,
-    pub name: Option<String>,
+    /// The same index as in the gltf file
+    pub index: usize,
+    pub name: String,
 
     pub children: Vec<Node>,
     pub mesh: Option<Mesh>,
+
     pub transform: Mat4,
 
     pub joints: Option<Joints>,
@@ -102,7 +118,7 @@ impl Node {
     ) -> Result<Self> {
         let mut children = Vec::new();
 
-        let my_id = *id;
+        let name = node.name().unwrap_or(&format!("Node-{id}")).to_string();
 
         for child_node in node.children() {
             *id += 1;
@@ -116,8 +132,8 @@ impl Node {
         };
 
         let transform = match node.transform() {
-            Transform::Matrix { matrix } => Mat4::from_cols_array_2d(&matrix),
-            Transform::Decomposed {
+            GTransform::Matrix { matrix } => Mat4::from_cols_array_2d(&matrix),
+            GTransform::Decomposed {
                 translation,
                 rotation,
                 scale,
@@ -140,11 +156,11 @@ impl Node {
         };
 
         Ok(Self {
-            id: my_id,
+            index: node.index(),
             children,
             mesh,
             transform,
-            name: node.name().map(|n| n.to_owned()),
+            name,
             joints,
         })
     }

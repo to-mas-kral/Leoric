@@ -79,7 +79,7 @@ fn main() -> Result<()> {
         }
 
         renderer.render(&mut scene, &mut camera, &window, &gui);
-        gui.render(&mut scene, &mut window.egui_ctx);
+        gui.render(&mut scene, &mut camera, &mut window.egui_ctx);
 
         unsafe {
             // Disable backface culling and depth test, otherwise egui doesn't render correctly
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
             break 'render_loop;
         }
 
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(3));
     }
 
     Ok(())
@@ -113,12 +113,14 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
-    add("resources/infantry/Infantry.gltf")?;
-    //add("resources/RiggedFigure.gltf")?;
+    add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
+    add("resources/toon_cat_free/Cat.gltf")?;
+    add("resources/pakistan_girl_-_animated/Girl.gltf")?;
+    add("resources/elephant_animation_idle/Elephant.gltf")?;
     add("resources/CesiumMan.glb")?;
     //add("resources/RiggedSimple.gltf")?;
+    //add("resources/infantry/Infantry.gltf")?;
     //add("resources/BrainStem.glb")?;
-    add("resources/pakistan_girl_-_animated/Girl.gltf")?;
 
     Ok(scene)
 }

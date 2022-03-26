@@ -21,8 +21,6 @@ uniform sampler2D myTexture;
 uniform vec4 texBaseColorFactor;
 uniform uint drawingPoints;
 
-uniform float globalAlpha;
-
 void main() {
     if (drawingPoints == 1) {
         //vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
@@ -30,9 +28,7 @@ void main() {
         FragColor = texBaseColorFactor;
     } else {
         vec4 texColor = texture(myTexture, texCoords) * texBaseColorFactor;
-        FragColor = vec4(texColor.xyz, texColor.w * globalAlpha  * 0.5);
         FragColor = vec4(texColor.xyz, 1.0);
-        //FragColor = vec4(texBaseColorFactor.xyz, texBaseColorFactor.w * globalAlpha * 0.7);
-        //discard;
+        //FragColor = vec4(0.4, 0.5, 0.9, 0.6);
     }
 }

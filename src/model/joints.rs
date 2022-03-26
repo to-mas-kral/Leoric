@@ -1,8 +1,7 @@
 use eyre::Result;
 use glam::{Mat4, Quat, Vec3};
-use gltf::scene::Transform;
 
-use super::DataBundle;
+use super::{DataBundle, Transform};
 
 pub struct Joints {
     pub joints: Vec<Joint>,
@@ -59,16 +58,15 @@ impl Joints {
                 let joints_index = joints.len();
 
                 let matrix_index = joint_indices.iter().position(|i| *i == index).unwrap();
-                let name = node.name().unwrap_or("N/A").to_string();
+                let name = node.name().unwrap_or(&format!("Joint-{index}")).to_string();
 
-                let (translation, rotation, scale) = Self::get_joint_transform(node);
+                let transform = Transform::from_gltf(node);
 
                 joints.push(Joint::new(
+                    index,
                     parent,
                     inverse_bind_matrices[matrix_index],
-                    translation,
-                    rotation,
-                    scale,
+                    transform,
                     name,
                 ));
 
@@ -101,75 +99,34 @@ impl Joints {
             }
         }
     }
-
-    fn get_joint_transform(node: &gltf::Node) -> (Vec3, Quat, Vec3) {
-        let (translation, rotation, scale) = match node.transform() {
-            Transform::Matrix { matrix: mat } => {
-                // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#transformations
-                // "When matrix is defined, it MUST be decomposable to TRS properties."
-                Mat4::from_cols_array_2d(&mat).to_scale_rotation_translation()
-            }
-            Transform::Decomposed {
-                translation,
-                rotation,
-                scale,
-            } => {
-                let translation = Vec3::from(translation);
-                // TODO: should normalize quaternion or not ?
-                //let rotation = Quat::from_array(rotation);
-                let rotation = Quat::from_xyzw(rotation[0], rotation[1], rotation[2], rotation[3]);
-                let scale = Vec3::from(scale);
-
-                (translation, rotation, scale)
-            }
-        };
-        (translation, rotation, scale)
-    }
 }
 
 pub struct Joint {
+    /// The same node index as in the gltf file
+    pub node_index: usize,
     /// An index to the parent node (None if this joint is the root)
     pub parent: Option<usize>,
     /// The matrix that transforms this node to the origin
     pub inverse_bind_matrix: Mat4,
-    /// Local translation relative to the parent joint
-    pub translation: Vec3,
-    /// Local rotation relative to the parent joint
-    pub rotation: Quat,
-    /// Local scale relative to the parent joint
-    pub scale: Vec3,
-    /// All local transformation combined
-    pub transform: Mat4,
+    pub transform: Transform,
     /// Name for debug purposes
     pub name: String,
 }
 
 impl Joint {
     pub fn new(
+        node_index: usize,
         parent: Option<usize>,
         inverse_bind_matrix: Mat4,
-        translation: Vec3,
-        rotation: Quat,
-        scale: Vec3,
+        transform: Transform,
         name: String,
     ) -> Self {
-        let mut s = Self {
+        Self {
+            node_index,
             parent,
             inverse_bind_matrix,
-            translation,
-            rotation,
-            scale,
-            transform: Mat4::IDENTITY,
+            transform,
             name,
-        };
-
-        s.recalc_transform();
-        s
-    }
-
-    pub fn recalc_transform(&mut self) {
-        self.transform = Mat4::from_translation(self.translation)
-            * Mat4::from_quat(self.rotation)
-            * Mat4::from_scale(self.scale);
+        }
     }
 }
