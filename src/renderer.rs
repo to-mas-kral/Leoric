@@ -267,10 +267,10 @@ impl Renderer {
         //self.apply_node_transforms(&mut model.root);
     }
 
-    fn apply_node_transforms(&self, node: &mut Node) {
+    /* fn apply_node_transforms(&self, node: &mut Node) {
         // Apply animation transformation
         // TODO: performance - flatten the hierarchy
-        /* if let Some(node_animation_transform) = self
+        if let Some(node_animation_transform) = self
             .node_animation_transforms
             .iter()
             .find(|nat| nat.node == node.index)
@@ -284,8 +284,8 @@ impl Renderer {
 
         for child in &mut node.children {
             self.apply_node_transforms(child);
-        } */
-    }
+        }
+    } */
 
     fn apply_joint_transforms(&self, joints: &mut [Joint]) {
         for joint in joints {

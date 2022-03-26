@@ -85,7 +85,7 @@ impl Gui {
                         let joint_name = &joint.name;
 
                         CollapsingHeader::new(joint_name)
-                            .default_open(true)
+                            .default_open(false)
                             .show(ui, |ui| {
                                 Self::show_joint_transforms(joint, ui);
                             });
@@ -167,7 +167,11 @@ impl Gui {
                 self.wireframe = !self.wireframe;
             }
 
-            ui.add(Slider::new(&mut camera.move_speed, 0.0..=100.).text("Camera move speed"));
+            ui.add(
+                Slider::new(&mut camera.move_speed, 0.0..=15.)
+                    .text("Camera move speed")
+                    .smart_aim(false),
+            );
 
             egui::global_dark_light_mode_switch(ui);
         });
@@ -184,7 +188,8 @@ impl Gui {
                         ui.group(|ui| {
                             let response = ui.add(
                                 Slider::new(&mut animation.current_time, 0.0..=animation.end_time)
-                                    .text("Animation time"),
+                                    .text("Animation time")
+                                    .smart_aim(false),
                             );
 
                             if response.clicked() || response.dragged() || response.changed() {

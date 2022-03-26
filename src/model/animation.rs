@@ -198,16 +198,16 @@ impl Channel {
                 return AnimationTransform::Translation(interpolated);
             }
             AnimationTransforms::Rotations(rotations) => {
-                let start = rotations[start_index];
-                let end = rotations[start_index + 1];
+                let start = rotations[start_index].normalize();
+                let end = rotations[start_index + 1].normalize();
 
                 let interpolated = if start.dot(end) > 0. {
                     start.slerp(end, coeff)
                 } else {
-                    -start.slerp(end, coeff)
+                    (-start).slerp(end, coeff)
                 };
 
-                return AnimationTransform::Rotation(interpolated);
+                return AnimationTransform::Rotation(interpolated.normalize());
             }
             AnimationTransforms::Scales(scales) => {
                 let start = scales[start_index];
