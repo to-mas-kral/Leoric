@@ -11,7 +11,6 @@ use gui::Gui;
 use model::Model;
 use renderer::Renderer;
 use sdl2::{keyboard::Scancode, EventPump};
-use shader::Shader;
 
 use window::MyWindow;
 
@@ -39,9 +38,6 @@ fn main() -> Result<()> {
         );
     };
 
-    // Shaders
-    let shader = Shader::from_file("shaders/vs_texture.vert", "shaders/fs_texture.frag")?;
-
     let mut scene = setup_scene()?;
 
     let mut camera = Camera::new(
@@ -51,7 +47,7 @@ fn main() -> Result<()> {
         window.width,
         window.height,
     );
-    let mut renderer = Renderer::new(shader);
+    let mut renderer = Renderer::new()?;
 
     let mut gui = Gui::new();
 
@@ -113,8 +109,9 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
+    add("resources/s9_mini_drone/drone.gltf")?;
     add("resources/animated_goblin_vs._vampire_spell_casting_loop/scene.gltf")?;
-    add("resources/dancing_stormtrooper/scene.gltf")?;
+    add("resources/dancing_stormtrooper/Stormtrooper.gltf")?;
     add("resources/animated_humanoid_robot/scene.gltf")?;
     add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
     add("resources/toon_cat_free/Cat.gltf")?;
@@ -123,7 +120,6 @@ fn setup_scene() -> Result<Vec<Model>> {
     add("resources/CesiumMan.glb")?;
     //add("resources/RiggedSimple.gltf")?;
     //add("resources/infantry/Infantry.gltf")?;
-    //add("resources/BrainStem.glb")?;
 
     Ok(scene)
 }

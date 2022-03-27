@@ -33,6 +33,7 @@ impl Shader {
         }
     }
 
+    #[allow(unused)]
     pub fn set_mat4_arr(&self, mats: &[Mat4], name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));
@@ -50,6 +51,7 @@ impl Shader {
         }
     }
 
+    #[allow(unused)]
     pub fn set_vec3(&self, vec: Vec3, name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));

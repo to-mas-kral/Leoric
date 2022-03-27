@@ -1,6 +1,7 @@
 use std::{ptr, time::Instant};
 
-use glam::{Mat4, Vec3, Vec4};
+use eyre::Result;
+use glam::{Mat4, Vec4};
 
 use crate::{
     camera::Camera,
@@ -12,15 +13,27 @@ use crate::{
     window::MyWindow,
 };
 
+use self::uniform_buffer::{JointTransforms, Transforms, UniformBuffer};
+
+mod uniform_buffer;
+
 pub struct Renderer {
-    // TODO: multiple shaders for textured / non-textured models and Uniform Buffer Objects
-    shader: Shader,
+    skin_shader: Shader,
+    standard_shader: Shader,
+
+    transforms: UniformBuffer<Transforms>,
+    joint_transforms: UniformBuffer<JointTransforms>,
+
     points_vao: u32,
     node_animation_transforms: Vec<NodeAnimationTransform>,
 }
 
 impl Renderer {
-    pub fn new(shader: Shader) -> Self {
+    pub fn new() -> Result<Self> {
+        let skin_shader = Shader::from_file("shaders/vs_skin.vert", "shaders/fs_texture.frag")?;
+        let standard_shader =
+            Shader::from_file("shaders/vs_standard.vert", "shaders/fs_texture.frag")?;
+
         let points_vao = {
             let mut positions = 0;
             let mut texcoords = 0;
@@ -49,11 +62,14 @@ impl Renderer {
             vao
         };
 
-        Self {
-            shader,
+        Ok(Self {
+            skin_shader,
+            standard_shader,
+            transforms: UniformBuffer::new(Transforms::new_indentity()),
+            joint_transforms: UniformBuffer::new(JointTransforms::new()),
             points_vao,
             node_animation_transforms: Vec::new(),
-        }
+        })
     }
 
     pub fn render(
@@ -67,7 +83,7 @@ impl Renderer {
             gl::ClearColor(0.15, 0.15, 0.15, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-            gl::UseProgram(self.shader.id);
+            gl::UseProgram(self.skin_shader.id);
         }
 
         self.node_animation_transforms.clear();
@@ -81,13 +97,13 @@ impl Renderer {
             3000.,
         );
 
-        self.shader.set_mat4(persp, "projection\0");
-        self.shader.set_mat4(camera.get_view_mat(), "view\0");
+        self.transforms.inner.projection = persp;
+        self.transforms.inner.view = camera.get_view_mat();
+        self.transforms.update();
 
-        self.shader.set_vec3(Vec3::new(-1., 2., 2.), "lightPos\0");
-        self.shader.set_vec3(camera.get_pos(), "viewPos\0");
-
-        self.shader.set_u32(0, "useTexture\0");
+        /* self.skin_shader
+            .set_vec3(Vec3::new(-1., 2., 2.), "lightPos\0");
+        self.skin_shader.set_vec3(camera.get_pos(), "viewPos\0"); */
 
         let model = &mut models[gui_state.selected_model];
 
@@ -111,7 +127,7 @@ impl Renderer {
         }
 
         if let Some(mesh) = &node.mesh {
-            self.render_mesh(mesh, bundle, next_level_transform);
+            self.render_mesh(mesh, next_level_transform);
         }
 
         for node in &mut node.children {
@@ -119,25 +135,23 @@ impl Renderer {
         }
     }
 
-    fn render_mesh(&mut self, mesh: &Mesh, bundle: &DataBundle, node_transform: Mat4) {
-        self.shader.set_mat4(node_transform, "model\0");
+    fn render_mesh(&mut self, mesh: &Mesh, node_transform: Mat4) {
+        self.skin_shader.set_mat4(node_transform, "model\0");
 
         for prim in &mesh.primitives {
             match (prim.vao, &prim.texture_info) {
                 (Some(vao), prim_tex_info) => unsafe {
                     match prim_tex_info {
-                        // TODO: draw both plain-color objects and textured ones
                         PrimTexInfo::None { base_color_factor } => {
-                            self.shader
+                            self.skin_shader
                                 .set_vec4(*base_color_factor, "texBaseColorFactor\0");
 
-                            self.shader.set_u32(0, "useTexture\0");
+                            self.skin_shader.set_u32(0, "useTexture\0");
                         }
-                        PrimTexInfo::Some { texture_index } => {
-                            let texture = &bundle.gl_textures[*texture_index].as_ref().unwrap();
-                            self.shader
+                        PrimTexInfo::Some(texture) => {
+                            self.skin_shader
                                 .set_vec4(texture.base_color_factor, "texBaseColorFactor\0");
-                            self.shader.set_u32(1, "useTexture\0");
+                            self.skin_shader.set_u32(1, "useTexture\0");
 
                             gl::BindTexture(gl::TEXTURE_2D, texture.gl_id);
                         }
@@ -160,7 +174,7 @@ impl Renderer {
     }
 
     pub fn recalc_skin_matrices(
-        &self,
+        &mut self,
         joints: &mut [Joint],
         outer_transform: Mat4,
         gui_state: &Gui,
@@ -178,37 +192,39 @@ impl Renderer {
             world_transforms[i] = transform;
         }
 
-        let mut skinning_matrices = Vec::new();
-        skinning_matrices.reserve(joints.len());
-
         if gui_state.debug_joints {
             self.debug_joints(&world_transforms);
         }
 
+        let joint_matrices = &mut self.joint_transforms.inner.matrices;
+        joint_matrices.clear();
+
         for (i, joint) in joints.iter().enumerate() {
-            let skinning_matrix = world_transforms[i] * joint.inverse_bind_matrix;
-            skinning_matrices.push(skinning_matrix);
+            let mat = world_transforms[i] * joint.inverse_bind_matrix;
+            joint_matrices.push(mat);
         }
 
-        self.shader
-            .set_mat4_arr(&skinning_matrices, "jointMatrices\0");
+        self.joint_transforms.update();
     }
 
-    fn debug_joints(&self, world_transforms: &[Mat4]) {
+    fn debug_joints(&mut self, world_transforms: &[Mat4]) {
         for trans in world_transforms {
-            self.shader.set_mat4(*trans, "model\0");
-            self.shader.set_u32(1, "drawingPoints\0");
-            self.shader
+            self.transforms.inner.model = *trans;
+            self.transforms.update();
+
+            self.skin_shader
                 .set_vec4(Vec4::new(0.85, 0.08, 0.7, 1.0), "texBaseColorFactor\0");
 
-            unsafe {
+            /* unsafe {
+                gl::UseProgram(self.standard_shader.id);
+
                 gl::BindVertexArray(self.points_vao);
                 gl::PointSize(7.);
                 gl::DrawArrays(gl::POINTS, 0, 1);
                 gl::BindVertexArray(0);
-            }
 
-            self.shader.set_u32(0, "drawingPoints\0");
+                gl::UseProgram(self.skin_shader.id);
+            } */
         }
     }
 
