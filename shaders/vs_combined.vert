@@ -16,6 +16,10 @@ layout (std140, binding = 2) uniform JointMatrices {
     mat4 jointMatrices[256];
 };
 
+layout (std140, binding = 3) uniform Settings {
+    int doSkinning;
+};
+
 out VsOut {
     vec2 texCoords;
     // vec3 normal;
@@ -26,13 +30,21 @@ void main() {
     // https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy
     // "Only the joint transforms are applied to the skinned mesh; the transform of the
     // skinned mesh node MUST be ignored."
-    mat4 model =
-        (inWeights.x * jointMatrices[int(inJoints.x)]) +
-        (inWeights.y * jointMatrices[int(inJoints.y)]) +
-        (inWeights.z * jointMatrices[int(inJoints.z)]) +
-        (inWeights.w * jointMatrices[int(inJoints.w)]);
 
-    gl_Position = projection * view * model * vec4(inPos, 1.0);
+    mat4 modelTransform;
+
+    if (doSkinning == 1) {
+        modelTransform =
+            (inWeights.x * jointMatrices[int(inJoints.x)]) +
+            (inWeights.y * jointMatrices[int(inJoints.y)]) +
+            (inWeights.z * jointMatrices[int(inJoints.z)]) +
+            (inWeights.w * jointMatrices[int(inJoints.w)]);
+    } else {
+        modelTransform = model;
+    }
+
+
+    gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
 
     vsOut.texCoords = inTexcoords;
 

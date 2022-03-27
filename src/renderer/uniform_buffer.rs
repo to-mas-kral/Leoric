@@ -1,6 +1,6 @@
 use std::{mem::size_of, ptr};
 
-use glam::Mat4;
+use glam::{Mat4, Vec4};
 
 /// Abstraction for working with UniformBuffers
 pub struct UniformBuffer<T: UniformBufferElement>
@@ -44,6 +44,7 @@ where
     }
 }
 
+// TODO: consider having getters / setters and updating the buffers in them
 /// Every element that we want to store in the UniformBuffer has to implement the 'udpate' method
 pub trait UniformBufferElement {
     /// Update buffer data using gl::BufferSubData
@@ -155,6 +156,89 @@ impl JointTransforms {
     pub fn new() -> Self {
         Self {
             matrices: Vec::new(),
+        }
+    }
+}
+
+pub struct Settings {
+    pub do_skinning: bool,
+}
+
+impl UniformBufferElement for Settings {
+    fn update(&self) {
+        let size = size_of::<i32>();
+        let num = if self.do_skinning { 1 } else { 0 };
+
+        unsafe {
+            gl::BufferSubData(
+                gl::UNIFORM_BUFFER,
+                0,
+                size as isize,
+                &num as *const i32 as _,
+            );
+        }
+    }
+
+    fn binding() -> u32 {
+        3
+    }
+
+    fn init_buffer(&self) {
+        let size = size_of::<i32>();
+
+        unsafe {
+            gl::BufferData(
+                gl::UNIFORM_BUFFER,
+                size as isize,
+                ptr::null() as _,
+                gl::STATIC_DRAW,
+            );
+        }
+    }
+}
+
+impl Settings {
+    pub fn new() -> Self {
+        Self { do_skinning: false }
+    }
+}
+
+pub struct Material {
+    pub base_color_factor: Vec4,
+}
+
+impl UniformBufferElement for Material {
+    fn update(&self) {
+        let size = 4 * size_of::<f32>();
+        let buf = self.base_color_factor.to_array();
+
+        unsafe {
+            gl::BufferSubData(gl::UNIFORM_BUFFER, 0, size as isize, buf.as_ptr() as _);
+        }
+    }
+
+    fn binding() -> u32 {
+        4
+    }
+
+    fn init_buffer(&self) {
+        let size = 4 * size_of::<f32>();
+
+        unsafe {
+            gl::BufferData(
+                gl::UNIFORM_BUFFER,
+                size as isize,
+                ptr::null() as _,
+                gl::STATIC_DRAW,
+            );
+        }
+    }
+}
+
+impl Material {
+    pub fn new() -> Self {
+        Self {
+            base_color_factor: Vec4::splat(1.),
         }
     }
 }

@@ -21,11 +21,9 @@ layout (std140, binding = 4) uniform Material {
     uniform vec4 texBaseColorFactor;
 };
 
-uniform sampler2D myTexture;
-
 out vec4 FragColor;
 
 void main() {
-    vec4 texColor = texture(myTexture, vsOut.texCoords) * texBaseColorFactor;
+    vec4 texColor = texBaseColorFactor;
     FragColor = texColor;
 }

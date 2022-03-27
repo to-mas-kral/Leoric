@@ -78,9 +78,10 @@ fn main() -> Result<()> {
         gui.render(&mut scene, &mut camera, &mut window.egui_ctx);
 
         unsafe {
-            // Disable backface culling and depth test, otherwise egui doesn't render correctly
+            // Reset gl properties so Egui cna render properly
             gl::Disable(gl::DEPTH_TEST);
             gl::Disable(gl::CULL_FACE);
+            gl::PolygonMode(gl::FRONT, gl::FILL);
         }
 
         let should_quit = window.end_frame();
@@ -109,17 +110,19 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
-    add("resources/s9_mini_drone/drone.gltf")?;
-    add("resources/animated_goblin_vs._vampire_spell_casting_loop/scene.gltf")?;
+    add("resources/phoenix_bird/Bird.gltf")?;
+    add("resources/animated_goblin_vs._vampire_spell_casting_loop/Duel.gltf")?;
     add("resources/dancing_stormtrooper/Stormtrooper.gltf")?;
-    add("resources/animated_humanoid_robot/scene.gltf")?;
+    add("resources/animated_humanoid_robot/Droid.gltf")?;
     add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
     add("resources/toon_cat_free/Cat.gltf")?;
     add("resources/pakistan_girl_-_animated/Girl.gltf")?;
     add("resources/elephant_animation_idle/Elephant.gltf")?;
+
     add("resources/CesiumMan.glb")?;
-    //add("resources/RiggedSimple.gltf")?;
-    //add("resources/infantry/Infantry.gltf")?;
+    add("resources/RiggedFigure.gltf")?;
+    add("resources/RiggedSimple.gltf")?;
+    add("resources/Buggy.gltf")?;
 
     Ok(scene)
 }

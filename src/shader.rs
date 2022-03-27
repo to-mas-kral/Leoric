@@ -24,6 +24,19 @@ impl Shader {
         Ok(Shader { id: shader_program })
     }
 
+    /// Use this shader to render
+    pub fn render<F>(&self, render: F)
+    where
+        F: FnOnce(),
+    {
+        unsafe {
+            gl::UseProgram(self.id);
+        }
+
+        render();
+    }
+
+    #[allow(unused)]
     pub fn set_mat4(&self, mat: Mat4, name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));
@@ -42,12 +55,7 @@ impl Shader {
 
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
-            gl::UniformMatrix4fv(
-                loc,
-                mats.len() as i32,
-                gl::FALSE,
-                mats_flat.as_ptr() as _,
-            );
+            gl::UniformMatrix4fv(loc, mats.len() as i32, gl::FALSE, mats_flat.as_ptr() as _);
         }
     }
 
@@ -61,6 +69,7 @@ impl Shader {
         }
     }
 
+    #[allow(unused)]
     pub fn set_vec4(&self, vec: Vec4, name: &str) {
         assert!(name.is_ascii());
         assert!(name.ends_with("\0"));

@@ -52,6 +52,7 @@ impl Animation {
         }
     }
 
+    // TODO: return an error if an animation targets a Node that isn't a joint
     pub fn from_gltf(gltf: &gltf::Document, bundle: &DataBundle) -> Result<Animations> {
         let mut animations = Vec::new();
 

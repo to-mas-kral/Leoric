@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use egui::{CollapsingHeader, CtxRef, Slider, Ui};
+use egui::{CollapsingHeader, CtxRef, RichText, Slider, Ui};
 use glam::Quat;
 
 use crate::{
@@ -29,7 +29,6 @@ impl Gui {
     pub fn render(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
         self.gui_model_hierarchy_window(scene, egui_ctx);
         self.gui_joints_window(&mut scene[self.selected_model], egui_ctx);
-        self.gui_animations_window(&mut scene[self.selected_model], egui_ctx);
         self.gui_side_panel(scene, camera, egui_ctx);
     }
 
@@ -84,11 +83,9 @@ impl Gui {
                     for joint in joints.joints.iter_mut() {
                         let joint_name = &joint.name;
 
-                        CollapsingHeader::new(joint_name)
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                Self::show_joint_transforms(joint, ui);
-                            });
+                        CollapsingHeader::new(joint_name).show(ui, |ui| {
+                            Self::show_joint_transforms(joint, ui);
+                        });
                     }
                 });
             });
@@ -147,90 +144,106 @@ impl Gui {
         joint.transform.rotation = Quat::from_axis_angle(axis.normalize(), angle.to_radians());
     }
 
-    fn gui_side_panel(&mut self, scene: &[Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
+    fn gui_side_panel(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
         egui::SidePanel::right("Side Panel").show(egui_ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for (i, model) in scene.iter().enumerate() {
-                    if ui.button(&model.name).clicked() {
-                        self.selected_model = i;
-                    }
-                }
-            });
+            ui.group(|ui| {
+                ui.add(egui::Label::new(RichText::new("Scenes").heading().strong()));
+                ui.separator();
 
-            ui.separator();
-
-            if ui.button("Debug joints").clicked() {
-                self.debug_joints = !self.debug_joints;
-            }
-
-            if ui.button("Wireframe").clicked() {
-                self.wireframe = !self.wireframe;
-            }
-
-            ui.add(
-                Slider::new(&mut camera.move_speed, 0.0..=15.)
-                    .text("Camera move speed")
-                    .smart_aim(false),
-            );
-
-            egui::global_dark_light_mode_switch(ui);
-        });
-    }
-
-    fn gui_animations_window(&self, selected_model: &mut Model, egui_ctx: &mut CtxRef) {
-        egui::Window::new("Animations")
-            .scroll2([false, true])
-            .resizable(true)
-            .show(&egui_ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    let animations = &mut selected_model.animations;
-                    for (i, animation) in animations.animations.iter_mut().enumerate() {
-                        ui.group(|ui| {
-                            let response = ui.add(
-                                Slider::new(&mut animation.current_time, 0.0..=animation.end_time)
-                                    .text("Animation time")
-                                    .smart_aim(false),
-                            );
-
-                            if response.clicked() || response.dragged() || response.changed() {
-                                animations.animation_control = AnimationControl::Controllable {
-                                    active_animation: i,
-                                };
-                            }
-
-                            if let AnimationControl::Loop {
-                                active_animation: _,
-                                start_time: _,
-                            } = animations.animation_control
-                            {
-                                egui_ctx.request_repaint();
-                            }
-
-                            if ui.button("Play").clicked() {
-                                match animations.animation_control {
-                                    AnimationControl::Static
-                                    | AnimationControl::Controllable {
-                                        active_animation: _,
-                                    } => {
-                                        animations.animation_control = AnimationControl::Loop {
-                                            active_animation: i,
-                                            start_time: Instant::now(),
-                                        }
-                                    }
-                                    AnimationControl::Loop {
-                                        active_animation: _,
-                                        start_time: _,
-                                    } => {
-                                        animations.animation_control =
-                                            AnimationControl::Controllable {
-                                                active_animation: i,
-                                            }
-                                    }
-                                };
-                            }
-                        });
+                    for (i, model) in scene.iter().enumerate() {
+                        if ui.button(&model.name).clicked() {
+                            self.selected_model = i;
+                        }
                     }
                 });
             });
+
+            ui.group(|ui| {
+                ui.add(egui::Label::new(
+                    RichText::new("Settings").heading().strong(),
+                ));
+
+                ui.separator();
+
+                if ui.button("Debug joints").clicked() {
+                    self.debug_joints = !self.debug_joints;
+                }
+
+                if ui.button("Wireframe").clicked() {
+                    self.wireframe = !self.wireframe;
+                }
+
+                ui.add(
+                    Slider::new(&mut camera.move_speed, 0.0..=15.)
+                        .text("Camera move speed")
+                        .smart_aim(false),
+                );
+
+                egui::global_dark_light_mode_switch(ui);
+            });
+
+            ui.group(|ui| {
+                ui.add(egui::Label::new(
+                    RichText::new("Animations").heading().strong(),
+                ));
+
+                ui.separator();
+
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    self.show_animation_view(scene, ui);
+                });
+            });
+        });
+    }
+
+    fn show_animation_view(&mut self, scene: &mut [Model], ui: &mut Ui) {
+        let selected_model = &mut scene[self.selected_model];
+        let animations = &mut selected_model.animations;
+        for (i, animation) in animations.animations.iter_mut().enumerate() {
+            ui.group(|ui| {
+                let response = ui.add(
+                    Slider::new(&mut animation.current_time, 0.0..=animation.end_time)
+                        .text("Animation time")
+                        .smart_aim(false),
+                );
+
+                if response.clicked() || response.dragged() || response.changed() {
+                    animations.animation_control = AnimationControl::Controllable {
+                        active_animation: i,
+                    };
+                }
+
+                if let AnimationControl::Loop {
+                    active_animation: _,
+                    start_time: _,
+                } = animations.animation_control
+                {
+                    ui.ctx().request_repaint();
+                }
+
+                if ui.button("Play").clicked() {
+                    match animations.animation_control {
+                        AnimationControl::Static
+                        | AnimationControl::Controllable {
+                            active_animation: _,
+                        } => {
+                            animations.animation_control = AnimationControl::Loop {
+                                active_animation: i,
+                                start_time: Instant::now(),
+                            }
+                        }
+                        AnimationControl::Loop {
+                            active_animation: _,
+                            start_time: _,
+                        } => {
+                            animations.animation_control = AnimationControl::Controllable {
+                                active_animation: i,
+                            }
+                        }
+                    };
+                }
+            });
+        }
     }
 }

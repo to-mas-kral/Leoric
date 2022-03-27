@@ -41,7 +41,6 @@ impl Joints {
     /// https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy
     /// "A node object does not specify whether it is a joint.
     /// Client implementations may need to traverse the skins array first, marking each joint node."
-    // FIXME: the transformations will not be correct if there are "gap nodes" between the joints
     fn build_hierarchy(
         nodes: &[gltf::Node],
         joint_indices: &Vec<usize>,
@@ -84,8 +83,7 @@ impl Joints {
                 }
             } else {
                 if !joints.is_empty() {
-                    // This is just a bad part of the spec...
-                    //unimplemented!("ERROR: A non-joint node in the joint node hierarchy");
+                    eprintln!("WARN: A non-joint node in the joint hierarchy");
                 }
 
                 // Didn't find a joint node, recurse further
