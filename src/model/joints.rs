@@ -83,7 +83,7 @@ impl Joints {
                 }
             } else {
                 if !joints.is_empty() {
-                    eprintln!("WARN: A non-joint node in the joint hierarchy");
+                    // TODO: eprintln!("WARN: A non-joint node in the joint hierarchy");
                 }
 
                 // Didn't find a joint node, recurse further
