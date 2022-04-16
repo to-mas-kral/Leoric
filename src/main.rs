@@ -1,3 +1,6 @@
+//! PGRF2 project - skeletal animation
+//!
+//! `main` function is the entry-point
 use std::{
     ffi::{c_void, CStr},
     ptr, thread,
@@ -14,13 +17,25 @@ use sdl2::{keyboard::Scancode, EventPump};
 
 use window::MyWindow;
 
+/// A module for working with a basic free camera.
 mod camera;
+
+/// All of the code for drawing the GUI using egui.
 mod gui;
+
+/// Represents a single gltf 2.0 model (used models only have 1 scene).
 mod model;
+
+/// Handles rendering the whole scene.
 mod renderer;
-mod shader;
+
+/// Abstraction for working with some OpenGL constructs.
+mod opengl;
+
+/// Handles window creation and egui boilerplate.
 mod window;
 
+/// Creates the window, configures OpenGL, sets up the scene and begins the render loop.
 fn main() -> Result<()> {
     let mut window = MyWindow::new("PGRF2 Projekt - Skeletální Animace - Tomáš Král")?;
 

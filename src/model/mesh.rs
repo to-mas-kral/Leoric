@@ -1,6 +1,7 @@
 use std::mem::size_of;
 
 use eyre::{eyre, Result};
+use gl::types::GLenum;
 use glam::{Vec2, Vec3, Vec4};
 use gltf::{
     image::Format,
@@ -8,10 +9,71 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
 };
 
-use super::{DataBundle, Indices, Texture};
+use super::DataBundle;
+
+/// A 'Mesh' contains multiple sub-meshes (called Primitives in the gltf parlance)
+pub struct Mesh {
+    pub primitives: Vec<Primitive>,
+    pub name: Option<String>,
+}
+
+impl Mesh {
+    pub fn from_gltf(mesh: &gltf::Mesh, bundle: &mut DataBundle) -> Result<Self> {
+        let name = mesh.name().map(|n| n.to_owned());
+
+        let mut primitives = Vec::new();
+        for primitive in mesh.primitives() {
+            let primitive = Primitive::from_gltf(&primitive, bundle)?;
+            primitives.push(primitive);
+        }
+
+        Ok(Mesh { primitives, name })
+    }
+}
+
+/// Better than using generics here
+pub enum Indices {
+    U32(Vec<u32>),
+    U16(Vec<u16>),
+    U8(Vec<u8>),
+}
+
+impl Indices {
+    pub fn size(&self) -> usize {
+        match self {
+            Indices::U32(buf) => buf.len() * size_of::<u32>(),
+            Indices::U16(buf) => buf.len() * size_of::<u16>(),
+            Indices::U8(buf) => buf.len() * size_of::<u8>(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Indices::U32(buf) => buf.len(),
+            Indices::U16(buf) => buf.len(),
+            Indices::U8(buf) => buf.len(),
+        }
+    }
+
+    pub fn ptr(&self) -> *const std::ffi::c_void {
+        match self {
+            Indices::U32(buf) => buf.as_ptr() as _,
+            Indices::U16(buf) => buf.as_ptr() as _,
+            Indices::U8(buf) => buf.as_ptr() as _,
+        }
+    }
+
+    pub fn gl_type(&self) -> GLenum {
+        match self {
+            Indices::U32(_) => gl::UNSIGNED_INT,
+            Indices::U16(_) => gl::UNSIGNED_SHORT,
+            Indices::U8(_) => gl::UNSIGNED_BYTE,
+        }
+    }
+}
 
 /// A Primitive represents a single 'mesh' in the normal meaning of that word
-/// (a collection of vertices with a specific topology like Trianglesd or Lines)
+/// (a collection of vertices with a specific topology like Triangles or Lines)
 pub struct Primitive {
     pub texture_info: PrimTexInfo,
     pub vao: Option<u32>,
@@ -346,5 +408,22 @@ pub struct PrimSkin {
 impl PrimSkin {
     pub fn new(joints: Vec<[u32; 4]>, weights: Vec<[f32; 4]>) -> Self {
         Self { joints, weights }
+    }
+}
+
+/// A structure that represents an already created OpenGL texture
+/// base_color_factor is a color multiplier
+#[derive(Clone)]
+pub struct Texture {
+    pub gl_id: u32,
+    pub base_color_factor: Vec4,
+}
+
+impl Texture {
+    pub fn new(gl_id: u32, base_color_factor: Vec4) -> Self {
+        Self {
+            gl_id,
+            base_color_factor,
+        }
     }
 }

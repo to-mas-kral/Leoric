@@ -10,13 +10,19 @@ use crate::{
         AnimationControl, AnimationTransform, DataBundle, Joint, Mesh, Model, Node, PrimTexInfo,
         Primitive,
     },
-    shader::Shader,
+    opengl::{shader::Shader, uniform_buffer::UniformBuffer},
     window::MyWindow,
 };
 
-use self::uniform_buffer::{JointTransforms, Material, Settings, Transforms, UniformBuffer};
+mod joint_transforms;
+mod material;
+mod settings;
+mod transforms;
 
-mod uniform_buffer;
+use self::{
+    joint_transforms::JointTransforms, material::Material, settings::Settings,
+    transforms::Transforms,
+};
 
 pub struct Renderer {
     texture_shader: Shader,

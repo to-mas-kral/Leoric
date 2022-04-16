@@ -38,7 +38,7 @@ impl Joints {
     }
 
     /// Traverse the scene and arrange the joint nodes into a correct hierarchy
-    /// https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy
+    /// <https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#joint-hierarchy>
     /// "A node object does not specify whether it is a joint.
     /// Client implementations may need to traverse the skins array first, marking each joint node."
     fn build_hierarchy(

@@ -8,10 +8,12 @@ use crate::{
     model::{AnimationControl, Model, Node},
 };
 
+/// Contains the current state of the GUI.
+/// Implements methods for displaying the widgets.
 pub struct Gui {
     /// Default 0 (assuming that there is at least 1 model in the scene)
     pub selected_model: usize,
-    /// If joints should e visible inside of the mesh
+    /// If joints should be visible inside of the mesh
     pub debug_joints: bool,
     /// If polygons should be drawn as wireframes
     pub wireframe: bool,

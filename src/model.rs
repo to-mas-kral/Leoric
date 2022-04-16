@@ -1,23 +1,23 @@
-use std::{mem::size_of, path::Path};
+use std::path::Path;
 
 use eyre::{eyre, Result};
-use gl::types::GLenum;
-use glam::{Mat4, Quat, Vec3, Vec4};
+use glam::{Mat4, Quat, Vec3};
 use gltf::scene::Transform as GTransform;
 
 mod animation;
 mod joints;
-mod primitive;
+mod mesh;
 mod transform;
 
+use self::mesh::Texture;
 pub use self::{
     animation::{Animation, AnimationControl, AnimationTransform, AnimationTransforms, Animations},
     joints::{Joint, Joints},
-    primitive::{PrimTexInfo, Primitive},
+    mesh::{Mesh, PrimTexInfo, Primitive},
     transform::Transform,
 };
 
-/// Image and vertex data of the asset
+/// Image and vertex data of the asset.
 pub struct DataBundle {
     /// Vertex data
     buffers: Vec<gltf::buffer::Data>,
@@ -37,7 +37,7 @@ impl DataBundle {
     }
 }
 
-/// This represents a top-level Node in a gltf hierarchy and contains necessary data for rendering
+/// This represents a gltf model and contains necessary data for rendering.
 pub struct Model {
     /// Texture data points to vectors in this bundle
     #[allow(unused)]
@@ -75,10 +75,10 @@ impl Model {
 
         let root = Node {
             index: usize::MAX,
+            name: "Root".to_string(),
             children: nodes,
             mesh: None,
             transform: Mat4::IDENTITY,
-            name: "Root".to_string(),
             joints: None,
         };
 
@@ -160,83 +160,5 @@ impl Node {
             name,
             joints,
         })
-    }
-}
-
-/// A 'Mesh' contains multiple sub-meshes (called Primitives in the gltf parlance)
-pub struct Mesh {
-    pub primitives: Vec<Primitive>,
-    pub name: Option<String>,
-}
-
-impl Mesh {
-    fn from_gltf(mesh: &gltf::Mesh, bundle: &mut DataBundle) -> Result<Self> {
-        let name = mesh.name().map(|n| n.to_owned());
-
-        let mut primitives = Vec::new();
-        for primitive in mesh.primitives() {
-            let primitive = Primitive::from_gltf(&primitive, bundle)?;
-            primitives.push(primitive);
-        }
-
-        Ok(Mesh { primitives, name })
-    }
-}
-
-/// Better than using generics here
-pub enum Indices {
-    U32(Vec<u32>),
-    U16(Vec<u16>),
-    U8(Vec<u8>),
-}
-
-impl Indices {
-    pub fn size(&self) -> usize {
-        match self {
-            Indices::U32(buf) => buf.len() * size_of::<u32>(),
-            Indices::U16(buf) => buf.len() * size_of::<u16>(),
-            Indices::U8(buf) => buf.len() * size_of::<u8>(),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Indices::U32(buf) => buf.len(),
-            Indices::U16(buf) => buf.len(),
-            Indices::U8(buf) => buf.len(),
-        }
-    }
-
-    pub fn ptr(&self) -> *const std::ffi::c_void {
-        match self {
-            Indices::U32(buf) => buf.as_ptr() as _,
-            Indices::U16(buf) => buf.as_ptr() as _,
-            Indices::U8(buf) => buf.as_ptr() as _,
-        }
-    }
-
-    pub fn gl_type(&self) -> GLenum {
-        match self {
-            Indices::U32(_) => gl::UNSIGNED_INT,
-            Indices::U16(_) => gl::UNSIGNED_SHORT,
-            Indices::U8(_) => gl::UNSIGNED_BYTE,
-        }
-    }
-}
-
-/// A structure that represents an already created OpenGL texture
-/// base_color_factor is a color multiplier
-#[derive(Clone)]
-pub struct Texture {
-    pub gl_id: u32,
-    pub base_color_factor: Vec4,
-}
-
-impl Texture {
-    pub fn new(gl_id: u32, base_color_factor: Vec4) -> Self {
-        Self {
-            gl_id,
-            base_color_factor,
-        }
     }
 }

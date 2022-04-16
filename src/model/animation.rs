@@ -25,8 +25,6 @@ pub enum AnimationControl {
     Static,
 }
 
-impl AnimationControl {}
-
 /// Contains all animation data
 pub struct Animation {
     pub channels: Vec<Channel>,
@@ -109,7 +107,7 @@ impl Animation {
         })
     }
 
-    /// https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#animations
+    /// <https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#animations>
     /// Implementations MUST use following equations to decode real floating-point
     /// value f from a normalized integer c and vise-versa:
     ///
@@ -178,7 +176,7 @@ impl Channel {
         }
     }
 
-    /// https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#appendix-c-interpolation
+    /// <https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#appendix-c-interpolation>
     pub fn interpolate_transforms(
         &self,
         start_index: usize, // end index is always start_index + 1

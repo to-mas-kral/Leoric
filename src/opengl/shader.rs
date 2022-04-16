@@ -3,13 +3,17 @@ use gl::types::GLenum;
 use glam::{Mat4, Vec3, Vec4};
 use std::{fs, ptr};
 
-/// Represents a created OpenGL shader
-/// Allows setting uniforms with set_<> methods
+/// Represents an OpenGL shader.
+///
+/// Allows setting uniforms with set_<> methods.
+///
+/// Use the `render` method for draw calls.
 pub struct Shader {
     pub id: u32,
 }
 
 impl Shader {
+    /// Loads a vertex shader and a fragment shader from specified paths and tries to create a shader program
     pub fn from_file(vs_path: &str, fs_path: &str) -> Result<Shader> {
         let mut vs_src = fs::read(vs_path).wrap_err("Couldn't load the vertex shader file")?;
         let mut fs_src = fs::read(fs_path).wrap_err("Couldn't load the fragment shader file")?;
@@ -24,16 +28,75 @@ impl Shader {
         Ok(Shader { id: shader_program })
     }
 
-    /// Use this shader to render
+    /// Use this shader to render.
+    ///
+    /// Draw calls should be passed using the `render` function parameter.
     pub fn render<F>(&self, render: F)
     where
         F: FnOnce(),
     {
         unsafe {
             gl::UseProgram(self.id);
-        }
 
-        render();
+            render();
+
+            gl::UseProgram(0);
+        }
+    }
+
+    /// Tries to compile a shader and checks for compilation errors.
+    fn compile_shader(src: &[u8], typ: GLenum) -> Result<u32> {
+        unsafe {
+            let shader = gl::CreateShader(typ);
+            gl::ShaderSource(shader, 1, &(src.as_ptr() as _), ptr::null_mut());
+            gl::CompileShader(shader);
+
+            let mut res = 0;
+            let mut info_log = [0u8; 512];
+            let mut info_len = 0;
+
+            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut res);
+
+            if res == 0 {
+                gl::GetShaderInfoLog(shader, 512, &mut info_len as _, info_log.as_mut_ptr() as _);
+                let info_msg = String::from_utf8_lossy(&info_log);
+                return Err(eyre!("Failed to compile a shader: '{}'", info_msg));
+            }
+
+            Ok(shader)
+        }
+    }
+
+    /// Tries to link the vertex and fragment shaders (passed by their ids) and checks for linking errors.
+    fn link_shaders(vs: u32, fs: u32) -> Result<u32> {
+        unsafe {
+            let shader_program = gl::CreateProgram();
+            gl::AttachShader(shader_program, vs);
+            gl::AttachShader(shader_program, fs);
+            gl::LinkProgram(shader_program);
+
+            let mut res = 0;
+            let mut info_log = [0u8; 512];
+            let mut info_len = 0;
+
+            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut res);
+
+            if res == 0 {
+                gl::GetProgramInfoLog(
+                    shader_program,
+                    512,
+                    &mut info_len as _,
+                    info_log.as_mut_ptr() as *mut i8,
+                );
+                let info_msg = String::from_utf8_lossy(&info_log);
+                return Err(eyre!("Failed to create a shader program: '{}'", info_msg));
+            }
+
+            gl::DeleteShader(vs);
+            gl::DeleteShader(fs);
+
+            Ok(shader_program)
+        }
     }
 
     #[allow(unused)]
@@ -96,59 +159,6 @@ impl Shader {
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform1ui(loc, v);
-        }
-    }
-
-    fn compile_shader(src: &[u8], typ: GLenum) -> Result<u32> {
-        unsafe {
-            let shader = gl::CreateShader(typ);
-            gl::ShaderSource(shader, 1, &(src.as_ptr() as _), ptr::null_mut());
-            gl::CompileShader(shader);
-
-            let mut res = 0;
-            let mut info_log = [0u8; 512];
-            let mut info_len = 0;
-
-            gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut res);
-
-            if res == 0 {
-                gl::GetShaderInfoLog(shader, 512, &mut info_len as _, info_log.as_mut_ptr() as _);
-                let info_msg = String::from_utf8_lossy(&info_log);
-                return Err(eyre!("Failed to compile a shader: '{}'", info_msg));
-            }
-
-            Ok(shader)
-        }
-    }
-
-    fn link_shaders(vs: u32, fs: u32) -> Result<u32> {
-        unsafe {
-            let shader_program = gl::CreateProgram();
-            gl::AttachShader(shader_program, vs);
-            gl::AttachShader(shader_program, fs);
-            gl::LinkProgram(shader_program);
-
-            let mut res = 0;
-            let mut info_log = [0u8; 512];
-            let mut info_len = 0;
-
-            gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut res);
-
-            if res == 0 {
-                gl::GetProgramInfoLog(
-                    shader_program,
-                    512,
-                    &mut info_len as _,
-                    info_log.as_mut_ptr() as *mut i8,
-                );
-                let info_msg = String::from_utf8_lossy(&info_log);
-                return Err(eyre!("Failed to create a shader program: '{}'", info_msg));
-            }
-
-            gl::DeleteShader(vs);
-            gl::DeleteShader(fs);
-
-            Ok(shader_program)
         }
     }
 }
