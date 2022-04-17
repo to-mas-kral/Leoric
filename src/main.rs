@@ -54,18 +54,12 @@ fn main() -> Result<()> {
         window.begin_frame();
 
         unsafe {
-            //gl::Viewport(0, 0, width as i32, height as i32);
+            gl::Viewport(0, 0, window.width as i32, window.height as i32);
             gl::Enable(gl::DEPTH_TEST);
             gl::Enable(gl::CULL_FACE);
             gl::CullFace(gl::BACK);
             gl::FrontFace(gl::CCW);
-
-            if gui.wireframe {
-                gl::PolygonMode(gl::FRONT, gl::LINE);
-            } else {
-                gl::PolygonMode(gl::FRONT, gl::FILL);
-            }
-
+            gl::PolygonMode(gl::FRONT, gl::FILL);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }

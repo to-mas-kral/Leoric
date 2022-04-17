@@ -9,6 +9,8 @@ use gltf::{
     texture::{MagFilter, MinFilter, WrappingMode},
 };
 
+use crate::ogl;
+
 use super::DataBundle;
 
 /// A gltf 'Mesh' contains multiple real sub-meshes (called Primitives in the gltf parlance)
@@ -126,13 +128,6 @@ impl Primitive {
         Ok(primitive)
     }
 
-    // Indices of the vertex attributes
-    const POS_INDEX: u32 = 0;
-    const TEXCOORDS_INDEX: u32 = 1;
-    const NORMALS_INDEX: u32 = 2;
-    const JOINTS_INDEX: u32 = 3;
-    const WEIGHTS_INDEX: u32 = 4;
-
     fn create_buffers(&mut self, material: &gltf::Material, bundle: &mut DataBundle) {
         let mut indices = 0;
         let mut vao = 0;
@@ -141,16 +136,16 @@ impl Primitive {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
 
-            let _positions = Self::create_float_buf(&self.positions, 3, Self::POS_INDEX, gl::FLOAT);
+            let _positions = ogl::create_float_buf(&self.positions, 3, ogl::POS_INDEX, gl::FLOAT);
             let _texcoords =
-                Self::create_float_buf(&self.texcoords, 2, Self::TEXCOORDS_INDEX, gl::FLOAT);
-            let _normals = Self::create_float_buf(&self.normals, 3, Self::NORMALS_INDEX, gl::FLOAT);
+                ogl::create_float_buf(&self.texcoords, 2, ogl::TEXCOORDS_INDEX, gl::FLOAT);
+            let _normals = ogl::create_float_buf(&self.normals, 3, ogl::NORMALS_INDEX, gl::FLOAT);
 
             if let Some(skin) = &self.skin {
                 let _joints =
-                    Self::create_int_buf(&skin.joints, 4, Self::JOINTS_INDEX, gl::UNSIGNED_INT);
+                    ogl::create_int_buf(&skin.joints, 4, ogl::JOINTS_INDEX, gl::UNSIGNED_INT);
                 let _weights =
-                    Self::create_float_buf(&skin.weights, 4, Self::WEIGHTS_INDEX, gl::FLOAT);
+                    ogl::create_float_buf(&skin.weights, 4, ogl::WEIGHTS_INDEX, gl::FLOAT);
             }
 
             // Indices
@@ -184,71 +179,6 @@ impl Primitive {
             self.vao = vao;
             self.texture_info = texture_index;
         }
-    }
-
-    /// Create an opengl buffer with floating-point content.
-    ///
-    /// 'buffer' is a reference to a slice of T.
-    ///
-    /// 'components', 'attrib index' and 'typ' have the same meaning as the respective
-    /// arguments in glVertexAttribPointer.
-    fn create_float_buf<T: Copy>(
-        buffer: &[T],
-        components: i32,
-        attrib_index: u32,
-        typ: u32,
-    ) -> u32 {
-        let mut id: u32 = 0;
-
-        unsafe {
-            gl::GenBuffers(1, &mut id as *mut _);
-            gl::BindBuffer(gl::ARRAY_BUFFER, id);
-
-            let buffer_size = buffer.len() * size_of::<T>();
-
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                buffer_size as isize,
-                // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so this should be correct
-                buffer.as_ptr() as _,
-                gl::STATIC_DRAW,
-            );
-
-            gl::VertexAttribPointer(attrib_index, components, typ, gl::FALSE, 0, 0 as _);
-            gl::EnableVertexAttribArray(attrib_index);
-        }
-
-        id
-    }
-
-    /// Create an opengl buffer with integer content.
-    ///
-    /// 'buffer' is a reference to a slice of T.
-    ///
-    /// 'components', 'attrib index' and 'typ' have the same meaning as the respective
-    /// arguments in glVertexAttribPointer.
-    fn create_int_buf<T: Copy>(buffer: &[T], components: i32, attrib_index: u32, typ: u32) -> u32 {
-        let mut id: u32 = 0;
-
-        unsafe {
-            gl::GenBuffers(1, &mut id as *mut _);
-            gl::BindBuffer(gl::ARRAY_BUFFER, id);
-
-            let buffer_size = buffer.len() * size_of::<T>();
-
-            gl::BufferData(
-                gl::ARRAY_BUFFER,
-                buffer_size as isize,
-                // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so it should be correct
-                buffer.as_ptr() as _,
-                gl::STATIC_DRAW,
-            );
-
-            gl::VertexAttribIPointer(attrib_index, components, typ, 0, 0 as _);
-            gl::EnableVertexAttribArray(attrib_index);
-        }
-
-        id
     }
 
     /// Creates a new OpenGL texture.

@@ -14,17 +14,17 @@ pub struct Gui {
     /// Default 0 (assuming that there is at least 1 model in the scene)
     pub selected_model: usize,
     /// If joints should be visible inside of the mesh
-    pub debug_joints: bool,
-    /// If polygons should be drawn as wireframes
-    pub wireframe: bool,
+    pub draw_skeleton: bool,
+    /// If the mesh should be visible
+    pub mesh_visible: bool,
 }
 
 impl Gui {
     pub fn new() -> Self {
         Self {
             selected_model: 0,
-            debug_joints: true,
-            wireframe: false,
+            draw_skeleton: false,
+            mesh_visible: true,
         }
     }
 
@@ -169,11 +169,11 @@ impl Gui {
                 ui.separator();
 
                 if ui.button("Debug joints").clicked() {
-                    self.debug_joints = !self.debug_joints;
+                    self.draw_skeleton = !self.draw_skeleton;
                 }
 
-                if ui.button("Wireframe").clicked() {
-                    self.wireframe = !self.wireframe;
+                if ui.button("Draw mesh").clicked() {
+                    self.mesh_visible = !self.mesh_visible;
                 }
 
                 ui.add(

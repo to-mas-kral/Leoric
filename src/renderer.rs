@@ -17,6 +17,8 @@ use crate::{
 mod joint_transforms;
 mod material;
 mod settings;
+/// Used for drawing a debug mesh of the skeleton
+mod skeleton_mesh;
 mod transforms;
 
 use self::{
@@ -33,8 +35,9 @@ pub struct Renderer {
     settings: UniformBuffer<Settings>,
     material: UniformBuffer<Material>,
 
-    points_vao: u32,
     node_animation_transforms: Vec<NodeAnimationTransform>,
+
+    window_size: (i32, i32),
 }
 
 impl Renderer {
@@ -43,35 +46,6 @@ impl Renderer {
             Shader::from_file("shaders/vs_combined.vert", "shaders/fs_texture.frag")?;
         let color_shader = Shader::from_file("shaders/vs_combined.vert", "shaders/fs_color.frag")?;
 
-        // TODO: refactor debug joints drawing
-        let points_vao = {
-            let mut positions = 0;
-            let mut texcoords = 0;
-            let mut normals = 0;
-            let mut vao = 0;
-
-            unsafe {
-                gl::GenVertexArrays(1, &mut vao);
-                gl::BindVertexArray(vao);
-
-                // Positions
-                create_buf(&mut positions, &[0., 0., 0.], 3, 0, gl::FLOAT);
-
-                // Texcoords
-                create_buf(&mut texcoords, &[0., 0., 0.], 2, 1, gl::FLOAT);
-
-                // Normals
-                create_buf(&mut normals, &[0., 0., 0.], 3, 2, gl::FLOAT);
-
-                gl::BindVertexArray(0);
-                gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-                gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
-                gl::BindTexture(gl::TEXTURE_2D, 0);
-            }
-
-            vao
-        };
-
         Ok(Self {
             texture_shader,
             color_shader,
@@ -79,8 +53,8 @@ impl Renderer {
             joint_transforms: UniformBuffer::new(JointTransforms::new()),
             settings: UniformBuffer::new(Settings::new()),
             material: UniformBuffer::new(Material::new()),
-            points_vao,
             node_animation_transforms: Vec::new(),
+            window_size: (0, 0),
         })
     }
 
@@ -96,6 +70,8 @@ impl Renderer {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
+        self.window_size = (window.width as i32, window.height as i32);
+
         self.node_animation_transforms.clear();
 
         // Transformations
@@ -110,10 +86,6 @@ impl Renderer {
         self.transforms.inner.projection = persp;
         self.transforms.inner.view = camera.get_view_mat();
         self.transforms.update();
-
-        /* self.texture_shader
-            .set_vec3(Vec3::new(-1., 2., 2.), "lightPos\0");
-        self.texture_shader.set_vec3(camera.get_pos(), "viewPos\0"); */
 
         let model = &mut models[gui_state.selected_model];
 
@@ -136,12 +108,14 @@ impl Renderer {
             self.recalc_skin_matrices(&mut joints.joints, next_level_transform, gui_state);
         }
 
-        if let Some(mesh) = &node.mesh {
-            let do_skinning = node.joints.is_some();
-            self.settings.inner.do_skinning = do_skinning;
-            self.settings.update();
+        if gui_state.mesh_visible {
+            if let Some(mesh) = &node.mesh {
+                let do_skinning = node.joints.is_some();
+                self.settings.inner.do_skinning = do_skinning;
+                self.settings.update();
 
-            self.render_mesh(mesh, next_level_transform);
+                self.render_mesh(mesh, next_level_transform);
+            }
         }
 
         for node in &mut node.children {
@@ -214,8 +188,8 @@ impl Renderer {
             world_transforms[i] = transform;
         }
 
-        if gui_state.debug_joints {
-            self.debug_joints(&world_transforms);
+        if gui_state.draw_skeleton {
+            self.debug_joints(&world_transforms, joints);
         }
 
         let joint_matrices = &mut self.joint_transforms.inner.matrices;
@@ -229,23 +203,38 @@ impl Renderer {
         self.joint_transforms.update();
     }
 
-    fn debug_joints(&mut self, world_transforms: &[Mat4]) {
-        for trans in world_transforms {
-            self.transforms.inner.model = *trans;
-            self.transforms.update();
+    fn debug_joints(&mut self, world_transforms: &[Mat4], joints: &[Joint]) {
+        unsafe {
+            gl::Viewport(
+                0,
+                0,
+                (self.window_size.0 as f32 * 0.4) as i32,
+                (self.window_size.1 as f32 * 0.4) as i32,
+            );
+        }
 
-            self.material.inner.base_color_factor = Vec4::new(0.85, 0.08, 0.7, 1.0);
-            self.material.update();
+        self.settings.inner.do_skinning = false;
+        self.settings.update();
 
-            self.settings.inner.do_skinning = false;
-            self.settings.update();
+        self.material.inner.base_color_factor = Vec4::new(0.85, 0.08, 0.7, 1.0);
+        self.material.update();
 
-            self.color_shader.render(|| unsafe {
-                gl::BindVertexArray(self.points_vao);
-                gl::PointSize(7.);
-                gl::DrawArrays(gl::POINTS, 0, 1);
-                gl::BindVertexArray(0);
-            });
+        let tmp = self.transforms.inner.model;
+        self.transforms.inner.model = Mat4::IDENTITY;
+        self.transforms.update();
+
+        skeleton_mesh::draw_joints(world_transforms, &self.color_shader);
+
+        self.material.inner.base_color_factor = Vec4::new(0.1, 0.3, 0.7, 1.0);
+        self.material.update();
+
+        skeleton_mesh::draw_bones(world_transforms, joints, &self.color_shader);
+
+        self.transforms.inner.model = tmp;
+        self.transforms.update();
+
+        unsafe {
+            gl::Viewport(0, 0, self.window_size.0, self.window_size.1);
         }
     }
 
@@ -299,29 +288,7 @@ impl Renderer {
                 }
             }
         }
-
-        // TODO: animate nodes aswell
-        //self.apply_node_transforms(&mut model.root);
     }
-
-    /* fn apply_node_transforms(&self, node: &mut Node) {
-        // Apply animation transformation
-        if let Some(node_animation_transform) = self
-            .node_animation_transforms
-            .iter()
-            .find(|nat| nat.node == node.index)
-        {
-            match node_animation_transform.transform {
-                AnimationTransform::Translation(trans) => node.transform.translation = trans,
-                AnimationTransform::Rotation(rot) => node.transform.rotation = rot,
-                AnimationTransform::Scale(scale) => node.transform.scale = scale,
-            }
-        }
-
-        for child in &mut node.children {
-            self.apply_node_transforms(child);
-        }
-    } */
 
     fn apply_joint_transforms(&self, joints: &mut [Joint]) {
         for joint in joints {
@@ -352,24 +319,5 @@ struct NodeAnimationTransform {
 impl NodeAnimationTransform {
     fn new(node: usize, transform: AnimationTransform) -> Self {
         Self { node, transform }
-    }
-}
-
-fn create_buf<T: Copy>(id: &mut u32, buffer: &[T], stride: i32, attrib_index: u32, typ: u32) {
-    unsafe {
-        gl::GenBuffers(1, id);
-        gl::BindBuffer(gl::ARRAY_BUFFER, *id);
-
-        let buffer_size = buffer.len() * std::mem::size_of::<T>();
-
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            buffer_size as isize,
-            buffer.as_ptr() as _,
-            gl::STATIC_DRAW,
-        );
-
-        gl::VertexAttribPointer(attrib_index, stride, typ, gl::FALSE, 0, 0 as _);
-        gl::EnableVertexAttribArray(attrib_index);
     }
 }

@@ -1,5 +1,6 @@
 use std::{
     ffi::{c_void, CStr},
+    mem::size_of,
     ptr,
 };
 
@@ -8,6 +9,78 @@ pub mod shader;
 
 /// Abstraction for working with OpenGL Uniform Buffers.
 pub mod uniform_buffer;
+
+// Indices of the vertex attributes
+pub const POS_INDEX: u32 = 0;
+pub const TEXCOORDS_INDEX: u32 = 1;
+pub const NORMALS_INDEX: u32 = 2;
+pub const JOINTS_INDEX: u32 = 3;
+pub const WEIGHTS_INDEX: u32 = 4;
+
+/// Create an opengl buffer with floating-point content.
+///
+/// 'buffer' is a reference to a slice of T.
+///
+/// 'components', 'attrib index' and 'typ' have the same meaning as the respective
+/// arguments in glVertexAttribPointer.
+pub fn create_float_buf<T: Copy>(
+    buffer: &[T],
+    components: i32,
+    attrib_index: u32,
+    typ: u32,
+) -> u32 {
+    let mut id: u32 = 0;
+
+    unsafe {
+        gl::GenBuffers(1, &mut id as *mut _);
+        gl::BindBuffer(gl::ARRAY_BUFFER, id);
+
+        let buffer_size = buffer.len() * size_of::<T>();
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            buffer_size as isize,
+            // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so this should be correct
+            buffer.as_ptr() as _,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribPointer(attrib_index, components, typ, gl::FALSE, 0, 0 as _);
+        gl::EnableVertexAttribArray(attrib_index);
+    }
+
+    id
+}
+
+/// Create an opengl buffer with integer content.
+///
+/// 'buffer' is a reference to a slice of T.
+///
+/// 'components', 'attrib index' and 'typ' have the same meaning as the respective
+/// arguments in glVertexAttribPointer.
+pub fn create_int_buf<T: Copy>(buffer: &[T], components: i32, attrib_index: u32, typ: u32) -> u32 {
+    let mut id: u32 = 0;
+
+    unsafe {
+        gl::GenBuffers(1, &mut id as *mut _);
+        gl::BindBuffer(gl::ARRAY_BUFFER, id);
+
+        let buffer_size = buffer.len() * size_of::<T>();
+
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            buffer_size as isize,
+            // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so it should be correct
+            buffer.as_ptr() as _,
+            gl::STATIC_DRAW,
+        );
+
+        gl::VertexAttribIPointer(attrib_index, components, typ, 0, 0 as _);
+        gl::EnableVertexAttribArray(attrib_index);
+    }
+
+    id
+}
 
 pub fn init_debug() {
     unsafe {

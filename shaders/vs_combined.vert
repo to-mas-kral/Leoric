@@ -43,7 +43,6 @@ void main() {
         modelTransform = model;
     }
 
-
     gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
 
     vsOut.texCoords = inTexcoords;
