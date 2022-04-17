@@ -34,6 +34,9 @@ let vysledek = (integer as f64) * float;
 let vysledek = integer * (float as u32);
 ```
 
+Rust podobně jako C++ používá název "vector" pro dynamické pole (typ `Vec`).
+Pro vektory v matematickém smyslu používám typy `Vec2`, `Vec3`, `Vec4` z knihovny `glam`.
+
 ## Mutabilita
 
 V Rustu se mutabilita rozlišuje 2 způsoby:

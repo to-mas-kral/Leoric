@@ -2,7 +2,7 @@ use std::{mem::size_of, ptr};
 
 use glam::Vec4;
 
-use crate::opengl::uniform_buffer::UniformBufferElement;
+use crate::ogl::uniform_buffer::UniformBufferElement;
 
 pub struct Material {
     pub base_color_factor: Vec4,

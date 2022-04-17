@@ -40,7 +40,7 @@ impl Gui {
         egui::Window::new("Model Hierarchy")
             .scroll2([false, true])
             .resizable(true)
-            .show(&egui_ctx, |ui| {
+            .show(egui_ctx, |ui| {
                 self.gui_node(&model.root, ui);
             });
     }
@@ -80,7 +80,7 @@ impl Gui {
 
     fn gui_joints_window_helper(&mut self, node: &mut Node, egui_ctx: &mut CtxRef) {
         if let Some(joints) = &mut node.joints {
-            egui::Window::new("Joints").show(&egui_ctx, |ui| {
+            egui::Window::new("Joints").show(egui_ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for joint in joints.joints.iter_mut() {
                         let joint_name = &joint.name;

@@ -43,7 +43,7 @@ impl Joints {
     /// Client implementations may need to traverse the skins array first, marking each joint node."
     fn build_hierarchy(
         nodes: &[gltf::Node],
-        joint_indices: &Vec<usize>,
+        joint_indices: &[usize],
         parent: Option<usize>,
         joints: &mut Vec<Joint>,
         inverse_bind_matrices: &[Mat4],

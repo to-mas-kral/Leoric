@@ -2,7 +2,7 @@ use std::{mem::size_of, ptr};
 
 use glam::Mat4;
 
-use crate::opengl::uniform_buffer::UniformBufferElement;
+use crate::ogl::uniform_buffer::UniformBufferElement;
 
 pub struct Transforms {
     pub projection: Mat4,
@@ -24,8 +24,7 @@ impl UniformBufferElement for Transforms {
     fn update(&self) {
         let buf: Vec<f32> = [self.projection, self.view, self.model]
             .iter()
-            .map(|mat| mat.to_cols_array())
-            .flatten()
+            .flat_map(|mat| mat.to_cols_array())
             .collect();
 
         unsafe {

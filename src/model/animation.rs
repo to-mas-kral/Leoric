@@ -71,11 +71,11 @@ impl Animation {
                     .ok_or(eyre!("Animation channel doesn't contain transforms"))?
                 {
                     ReadOutputs::Translations(trans) => {
-                        let data: Vec<Vec3> = trans.map(|v| Vec3::from(v)).collect();
+                        let data: Vec<Vec3> = trans.map(Vec3::from).collect();
                         AnimationTransforms::Translations(data)
                     }
                     ReadOutputs::Scales(scales) => {
-                        let data: Vec<Vec3> = scales.map(|v| Vec3::from(v)).collect();
+                        let data: Vec<Vec3> = scales.map(Vec3::from).collect();
                         AnimationTransforms::Scales(data)
                     }
                     ReadOutputs::Rotations(rotations) => Self::decode_rotations(rotations),
@@ -111,7 +111,7 @@ impl Animation {
     /// Implementations MUST use following equations to decode real floating-point
     /// value f from a normalized integer c and vise-versa:
     ///
-    /// accessor.componentType 	    int-to-float 	                float-to-int
+    /// accessor.componentType      int-to-float                    float-to-int
     /// ------------------------------------------------------------------------------
     /// signed byte                 f = max(c / 127.0, -1.0)        c = round(f * 127.0)
     /// unsigned byte               f = c / 255.0                   c = round(f * 255.0)

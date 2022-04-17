@@ -102,7 +102,7 @@ impl Shader {
     #[allow(unused)]
     pub fn set_mat4(&self, mat: Mat4, name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::UniformMatrix4fv(loc, 1, gl::FALSE, mat.to_cols_array().as_ptr() as _);
@@ -112,9 +112,9 @@ impl Shader {
     #[allow(unused)]
     pub fn set_mat4_arr(&self, mats: &[Mat4], name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
 
-        let mats_flat: Vec<f32> = mats.iter().map(|m| m.to_cols_array()).flatten().collect();
+        let mats_flat: Vec<f32> = mats.iter().flat_map(|m| m.to_cols_array()).collect();
 
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
@@ -125,7 +125,7 @@ impl Shader {
     #[allow(unused)]
     pub fn set_vec3(&self, vec: Vec3, name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform3f(loc, vec.x, vec.y, vec.z);
@@ -135,7 +135,7 @@ impl Shader {
     #[allow(unused)]
     pub fn set_vec4(&self, vec: Vec4, name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform4f(loc, vec.x, vec.y, vec.z, vec.w);
@@ -145,7 +145,7 @@ impl Shader {
     #[allow(unused)]
     pub fn set_f32(&self, v: f32, name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform1f(loc, v);
@@ -155,7 +155,7 @@ impl Shader {
     #[allow(unused)]
     pub fn set_u32(&self, v: u32, name: &str) {
         assert!(name.is_ascii());
-        assert!(name.ends_with("\0"));
+        assert!(name.ends_with('\0'));
         unsafe {
             let loc = gl::GetUniformLocation(self.id, name.as_ptr() as _);
             gl::Uniform1ui(loc, v);

@@ -11,7 +11,7 @@ use gltf::{
 
 use super::DataBundle;
 
-/// A 'Mesh' contains multiple sub-meshes (called Primitives in the gltf parlance)
+/// A gltf 'Mesh' contains multiple real sub-meshes (called Primitives in the gltf parlance)
 pub struct Mesh {
     pub primitives: Vec<Primitive>,
     pub name: Option<String>,
@@ -31,52 +31,11 @@ impl Mesh {
     }
 }
 
-/// Better than using generics here
-pub enum Indices {
-    U32(Vec<u32>),
-    U16(Vec<u16>),
-    U8(Vec<u8>),
-}
-
-impl Indices {
-    pub fn size(&self) -> usize {
-        match self {
-            Indices::U32(buf) => buf.len() * size_of::<u32>(),
-            Indices::U16(buf) => buf.len() * size_of::<u16>(),
-            Indices::U8(buf) => buf.len() * size_of::<u8>(),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            Indices::U32(buf) => buf.len(),
-            Indices::U16(buf) => buf.len(),
-            Indices::U8(buf) => buf.len(),
-        }
-    }
-
-    pub fn ptr(&self) -> *const std::ffi::c_void {
-        match self {
-            Indices::U32(buf) => buf.as_ptr() as _,
-            Indices::U16(buf) => buf.as_ptr() as _,
-            Indices::U8(buf) => buf.as_ptr() as _,
-        }
-    }
-
-    pub fn gl_type(&self) -> GLenum {
-        match self {
-            Indices::U32(_) => gl::UNSIGNED_INT,
-            Indices::U16(_) => gl::UNSIGNED_SHORT,
-            Indices::U8(_) => gl::UNSIGNED_BYTE,
-        }
-    }
-}
-
 /// A Primitive represents a single 'mesh' in the normal meaning of that word
-/// (a collection of vertices with a specific topology like Triangles or Lines)
+/// (a collection of vertices with a specific topology like Triangles or Lines).
 pub struct Primitive {
-    pub texture_info: PrimTexInfo,
-    pub vao: Option<u32>,
+    pub texture_info: PrimitiveTexture,
+    pub vao: u32,
 
     pub indices: Indices,
     pub positions: Vec<Vec3>,
@@ -97,7 +56,7 @@ impl Primitive {
         let positions = reader
             .read_positions()
             .ok_or(eyre!("primitive doesn't containt positions"))?
-            .map(|p| Vec3::from(p))
+            .map(Vec3::from)
             .collect();
 
         let indices = match reader
@@ -117,10 +76,7 @@ impl Primitive {
                 break;
             }
 
-            texcoords = texcoords_reader
-                .into_f32()
-                .map(|tc| Vec2::from(tc))
-                .collect();
+            texcoords = texcoords_reader.into_f32().map(Vec2::from).collect();
 
             texture_set += 1;
         }
@@ -128,7 +84,7 @@ impl Primitive {
         let normals = reader
             .read_normals()
             .ok_or(eyre!("primitive doesn't containt normals"))?
-            .map(|n| Vec3::from(n))
+            .map(Vec3::from)
             .collect();
 
         let skin = match (reader.read_joints(0), reader.read_weights(0)) {
@@ -150,8 +106,8 @@ impl Primitive {
         let material = primitive.material();
 
         let mut primitive = Self {
-            vao: None,
-            texture_info: PrimTexInfo::None {
+            vao: 0,
+            texture_info: PrimitiveTexture::None {
                 base_color_factor: Vec4::splat(1.),
             },
             indices,
@@ -162,6 +118,10 @@ impl Primitive {
         };
 
         primitive.create_buffers(&material, bundle);
+
+        if primitive.vao == 0 {
+            return Err(eyre!("primitive VAO wasn't correctly initialized"));
+        }
 
         Ok(primitive)
     }
@@ -207,13 +167,11 @@ impl Primitive {
             let pbr = material.pbr_metallic_roughness();
             let texture_index = match pbr.base_color_texture() {
                 Some(tex_info) => {
-                    let texture =
-                        self.create_texture(&tex_info.texture(), pbr.base_color_factor(), bundle);
-                    PrimTexInfo::Some(texture)
+                    self.create_texture(&tex_info.texture(), pbr.base_color_factor(), bundle)
                 }
                 None => {
                     let base_color_factor = Vec4::from(pbr.base_color_factor());
-                    PrimTexInfo::None { base_color_factor }
+                    PrimitiveTexture::None { base_color_factor }
                 }
             };
 
@@ -223,7 +181,7 @@ impl Primitive {
             gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, 0);
             gl::BindTexture(gl::TEXTURE_2D, 0);
 
-            self.vao = Some(vao);
+            self.vao = vao;
             self.texture_info = texture_index;
         }
     }
@@ -251,8 +209,7 @@ impl Primitive {
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 buffer_size as isize,
-                // TODO: check for safety - the layout of Vec3 is #[repr(C)] (struct of 3 floats),
-                // so it should be correct
+                // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so this should be correct
                 buffer.as_ptr() as _,
                 gl::STATIC_DRAW,
             );
@@ -282,8 +239,7 @@ impl Primitive {
             gl::BufferData(
                 gl::ARRAY_BUFFER,
                 buffer_size as isize,
-                // TODO: check for safety - the layout of Vec3 is #[repr(C)] (struct of 3 floats),
-                // so it should be correct
+                // The layout of Vec3 is #[repr(C)] (struct of 3 floats), so it should be correct
                 buffer.as_ptr() as _,
                 gl::STATIC_DRAW,
             );
@@ -295,12 +251,16 @@ impl Primitive {
         id
     }
 
+    /// Creates a new OpenGL texture.
+    ///
+    /// If the texture already exists (bundle.gl_textures\[texture_index\] == Some(...)),
+    /// no new texture is created, only the Texture struct is cloned.
     fn create_texture(
         &mut self,
         tex: &gltf::Texture,
         base_color_factor: [f32; 4],
         bundle: &mut DataBundle,
-    ) -> Texture {
+    ) -> PrimitiveTexture {
         let tex_index = tex.source().index();
         if let Some(texture) = bundle.gl_textures[tex_index].clone() {
             return texture;
@@ -342,11 +302,15 @@ impl Primitive {
             texture
         };
 
-        let texture = Texture::new(gl_tex_id, Vec4::from(base_color_factor));
+        let texture = PrimitiveTexture::Some {
+            gl_id: gl_tex_id,
+            base_color_factor: Vec4::from(base_color_factor),
+        };
         bundle.gl_textures[tex_index] = Some(texture.clone());
         texture
     }
 
+    /// Sets the appropriate sampler functions for the currently created texture.
     fn set_texture_sampler(&self, sampler: &gltf::texture::Sampler) {
         let min_filter = match sampler.min_filter() {
             Some(min_filter) => match min_filter {
@@ -392,14 +356,18 @@ impl Primitive {
     }
 }
 
-/// Texture info for a primitive
-/// If the primitive has a texture, copy the texture information from the Model's gl_textures
-/// If not, the base_color_factor serves as the object color
-pub enum PrimTexInfo {
+/// Texture info for a primitive.
+///
+/// If the primitive has a texture, copy the texture information from the Model's gl_textures.
+///
+/// If not, the base_color_factor serves as the object color.
+#[derive(Clone)]
+pub enum PrimitiveTexture {
     None { base_color_factor: Vec4 },
-    Some(Texture),
+    Some { gl_id: u32, base_color_factor: Vec4 },
 }
 
+/// Optional skin data for a primitive.
 pub struct PrimSkin {
     pub joints: Vec<[u32; 4]>,
     pub weights: Vec<[f32; 4]>,
@@ -411,19 +379,45 @@ impl PrimSkin {
     }
 }
 
-/// A structure that represents an already created OpenGL texture
-/// base_color_factor is a color multiplier
-#[derive(Clone)]
-pub struct Texture {
-    pub gl_id: u32,
-    pub base_color_factor: Vec4,
+/// Vertex indices for a primitive.
+///
+/// Better than using generics here.
+pub enum Indices {
+    U32(Vec<u32>),
+    U16(Vec<u16>),
+    U8(Vec<u8>),
 }
 
-impl Texture {
-    pub fn new(gl_id: u32, base_color_factor: Vec4) -> Self {
-        Self {
-            gl_id,
-            base_color_factor,
+impl Indices {
+    pub fn size(&self) -> usize {
+        match self {
+            Indices::U32(buf) => buf.len() * size_of::<u32>(),
+            Indices::U16(buf) => buf.len() * size_of::<u16>(),
+            Indices::U8(buf) => buf.len() * size_of::<u8>(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Indices::U32(buf) => buf.len(),
+            Indices::U16(buf) => buf.len(),
+            Indices::U8(buf) => buf.len(),
+        }
+    }
+
+    pub fn ptr(&self) -> *const std::ffi::c_void {
+        match self {
+            Indices::U32(buf) => buf.as_ptr() as _,
+            Indices::U16(buf) => buf.as_ptr() as _,
+            Indices::U8(buf) => buf.as_ptr() as _,
+        }
+    }
+
+    pub fn gl_type(&self) -> GLenum {
+        match self {
+            Indices::U32(_) => gl::UNSIGNED_INT,
+            Indices::U16(_) => gl::UNSIGNED_SHORT,
+            Indices::U8(_) => gl::UNSIGNED_BYTE,
         }
     }
 }

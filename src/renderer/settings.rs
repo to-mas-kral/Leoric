@@ -1,6 +1,6 @@
 use std::{mem::size_of, ptr};
 
-use crate::opengl::uniform_buffer::UniformBufferElement;
+use crate::ogl::uniform_buffer::UniformBufferElement;
 
 pub struct Settings {
     pub do_skinning: bool,

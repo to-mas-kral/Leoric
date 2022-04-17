@@ -7,10 +7,10 @@ use crate::{
     camera::Camera,
     gui::Gui,
     model::{
-        AnimationControl, AnimationTransform, DataBundle, Joint, Mesh, Model, Node, PrimTexInfo,
-        Primitive,
+        AnimationControl, AnimationTransform, DataBundle, Joint, Mesh, Model, Node, Primitive,
+        PrimitiveTexture,
     },
-    opengl::{shader::Shader, uniform_buffer::UniformBuffer},
+    ogl::{shader::Shader, uniform_buffer::UniformBuffer},
     window::MyWindow,
 };
 
@@ -43,6 +43,7 @@ impl Renderer {
             Shader::from_file("shaders/vs_combined.vert", "shaders/fs_texture.frag")?;
         let color_shader = Shader::from_file("shaders/vs_combined.vert", "shaders/fs_color.frag")?;
 
+        // TODO: refactor debug joints drawing
         let points_vao = {
             let mut positions = 0;
             let mut texcoords = 0;
@@ -132,7 +133,7 @@ impl Renderer {
         let next_level_transform = outer_transform * node.transform;
 
         if let Some(joints) = &mut node.joints {
-            self.recalc_skin_matrices(&mut joints.joints, next_level_transform, &gui_state);
+            self.recalc_skin_matrices(&mut joints.joints, next_level_transform, gui_state);
         }
 
         if let Some(mesh) = &node.mesh {
@@ -166,31 +167,31 @@ impl Renderer {
         };
 
         for prim in &mesh.primitives {
-            match (prim.vao, &prim.texture_info) {
-                (Some(vao), prim_tex_info) => unsafe {
-                    match prim_tex_info {
-                        PrimTexInfo::None { base_color_factor } => {
-                            self.material.inner.base_color_factor = *base_color_factor;
-                            self.material.update();
+            match prim.texture_info {
+                PrimitiveTexture::None { base_color_factor } => {
+                    self.material.inner.base_color_factor = base_color_factor;
+                    self.material.update();
 
-                            self.color_shader.render(|| {
-                                draw_mesh(vao, prim);
-                            });
-                        }
-                        PrimTexInfo::Some(texture) => {
-                            self.material.inner.base_color_factor = texture.base_color_factor;
-                            self.material.update();
+                    self.color_shader.render(|| {
+                        draw_mesh(prim.vao, prim);
+                    });
+                }
+                PrimitiveTexture::Some {
+                    gl_id,
+                    base_color_factor,
+                } => {
+                    self.material.inner.base_color_factor = base_color_factor;
+                    self.material.update();
 
-                            gl::BindTexture(gl::TEXTURE_2D, texture.gl_id);
+                    unsafe {
+                        gl::BindTexture(gl::TEXTURE_2D, gl_id);
+                    }
 
-                            self.texture_shader.render(|| {
-                                draw_mesh(vao, prim);
-                            });
-                        }
-                    };
-                },
-                _ => (),
-            }
+                    self.texture_shader.render(|| {
+                        draw_mesh(prim.vao, prim);
+                    });
+                }
+            };
         }
     }
 
@@ -305,7 +306,6 @@ impl Renderer {
 
     /* fn apply_node_transforms(&self, node: &mut Node) {
         // Apply animation transformation
-        // TODO: performance - flatten the hierarchy
         if let Some(node_animation_transform) = self
             .node_animation_transforms
             .iter()

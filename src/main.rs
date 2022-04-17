@@ -1,11 +1,7 @@
 //! PGRF2 project - skeletal animation
 //!
 //! `main` function is the entry-point
-use std::{
-    ffi::{c_void, CStr},
-    ptr, thread,
-    time::Duration,
-};
+use std::{thread, time::Duration};
 
 use camera::Camera;
 use eyre::Result;
@@ -29,8 +25,8 @@ mod model;
 /// Handles rendering the whole scene.
 mod renderer;
 
-/// Abstraction for working with some OpenGL constructs.
-mod opengl;
+/// Abstractions for working with some OpenGL.
+mod ogl;
 
 /// Handles window creation and egui boilerplate.
 mod window;
@@ -39,22 +35,11 @@ mod window;
 fn main() -> Result<()> {
     let mut window = MyWindow::new("PGRF2 Projekt - Skeletální Animace - Tomáš Král")?;
 
-    unsafe {
-        gl::Enable(gl::DEBUG_OUTPUT);
-        gl::Enable(gl::DEBUG_OUTPUT_SYNCHRONOUS);
-        gl::DebugMessageCallback(Some(gl_debug_callback), ptr::null());
-        gl::DebugMessageControl(
-            gl::DONT_CARE,
-            gl::DONT_CARE,
-            gl::DONT_CARE,
-            0,
-            ptr::null(),
-            gl::TRUE,
-        );
-    };
+    ogl::init_debug();
 
     let mut scene = setup_scene()?;
-
+    let mut gui = Gui::new();
+    let mut renderer = Renderer::new()?;
     let mut camera = Camera::new(
         Vec3::new(0., 0., 0.),
         0.3,
@@ -62,9 +47,6 @@ fn main() -> Result<()> {
         window.width,
         window.height,
     );
-    let mut renderer = Renderer::new()?;
-
-    let mut gui = Gui::new();
 
     'render_loop: loop {
         handle_inputs(&mut window.event_pump, &mut camera);
@@ -74,7 +56,6 @@ fn main() -> Result<()> {
         unsafe {
             //gl::Viewport(0, 0, width as i32, height as i32);
             gl::Enable(gl::DEPTH_TEST);
-            //TODO: test culling
             gl::Enable(gl::CULL_FACE);
             gl::CullFace(gl::BACK);
             gl::FrontFace(gl::CCW);
@@ -129,7 +110,7 @@ fn setup_scene() -> Result<Vec<Model>> {
     add("resources/animated_goblin_vs._vampire_spell_casting_loop/Duel.gltf")?;
     add("resources/dancing_stormtrooper/Stormtrooper.gltf")?;
     add("resources/animated_humanoid_robot/Droid.gltf")?;
-    add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
+    //add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
     add("resources/toon_cat_free/Cat.gltf")?;
     add("resources/pakistan_girl_-_animated/Girl.gltf")?;
     add("resources/elephant_animation_idle/Elephant.gltf")?;
@@ -170,31 +151,4 @@ fn handle_inputs(event_pump: &mut EventPump, camera: &mut Camera) {
     } else {
         camera.set_x_y(mouse_x, mouse_y)
     }
-}
-
-extern "system" fn gl_debug_callback(
-    _src: u32,
-    _typ: u32,
-    id: u32,
-    severity: u32,
-    _len: i32,
-    msg: *const i8,
-    _user_param: *mut c_void,
-) {
-    // Buffer creation on NVidia cards
-    if id == 131185 {
-        return;
-    }
-
-    match severity {
-        gl::DEBUG_SEVERITY_NOTIFICATION => print!("OpenGL - notification: "),
-        gl::DEBUG_SEVERITY_LOW => print!("OpenGL - low: "),
-        gl::DEBUG_SEVERITY_MEDIUM => print!("OpenGL - medium: "),
-        gl::DEBUG_SEVERITY_HIGH => print!("OpenGL - high: "),
-        _ => unreachable!("Unknown severity in glDebugCallback: '{}'", severity),
-    }
-
-    // TODO: check if the message is guaranteed to be ASCII
-    let msg = unsafe { CStr::from_ptr(msg) };
-    println!("OpenGL debug message: '{}'", msg.to_string_lossy())
 }

@@ -9,11 +9,10 @@ mod joints;
 mod mesh;
 mod transform;
 
-use self::mesh::Texture;
 pub use self::{
     animation::{Animation, AnimationControl, AnimationTransform, AnimationTransforms, Animations},
     joints::{Joint, Joints},
-    mesh::{Mesh, PrimTexInfo, Primitive},
+    mesh::{Mesh, Primitive, PrimitiveTexture},
     transform::Transform,
 };
 
@@ -24,7 +23,7 @@ pub struct DataBundle {
     /// Texture data
     images: Vec<gltf::image::Data>,
     /// To keep track if which textures were already sent to the GPU
-    pub gl_textures: Vec<Option<Texture>>,
+    pub gl_textures: Vec<Option<PrimitiveTexture>>,
 }
 
 impl DataBundle {
@@ -54,7 +53,7 @@ impl Model {
         let name = Path::new(path)
             .file_name()
             .map(|osstr| osstr.to_string_lossy().to_string())
-            .unwrap_or("N/A".to_string());
+            .unwrap_or_else(|| "N/A".to_string());
 
         let mut bundle = DataBundle::new(buffers, images);
 

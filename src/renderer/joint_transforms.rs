@@ -2,8 +2,7 @@ use std::{mem::size_of, ptr};
 
 use glam::Mat4;
 
-use crate::opengl::uniform_buffer::UniformBufferElement;
-
+use crate::ogl::uniform_buffer::UniformBufferElement;
 
 const MAX_JOINT_TRANSFORMS: usize = 256;
 
@@ -28,8 +27,7 @@ impl UniformBufferElement for JointTransforms {
         let buf: Vec<f32> = self
             .matrices
             .iter()
-            .map(|mat| mat.to_cols_array())
-            .flatten()
+            .flat_map(|mat| mat.to_cols_array())
             .collect();
 
         unsafe {
