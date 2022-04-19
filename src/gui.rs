@@ -5,7 +5,7 @@ use glam::Quat;
 
 use crate::{
     camera::Camera,
-    model::{AnimationControl, Model, Node},
+    model::{AnimationControl, Animations, Joint, Model, Node},
 };
 
 /// Contains the current state of the GUI.
@@ -75,10 +75,15 @@ impl Gui {
     }
 
     fn gui_joints_window(&mut self, model: &mut Model, egui_ctx: &mut CtxRef) {
-        self.gui_joints_window_helper(&mut model.root, egui_ctx);
+        self.gui_joints_window_helper(&mut model.root, &mut model.animations, egui_ctx);
     }
 
-    fn gui_joints_window_helper(&mut self, node: &mut Node, egui_ctx: &mut CtxRef) {
+    fn gui_joints_window_helper(
+        &mut self,
+        node: &mut Node,
+        animations: &mut Animations,
+        egui_ctx: &mut CtxRef,
+    ) {
         if let Some(joints) = &mut node.joints {
             egui::Window::new("Joints").show(egui_ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
@@ -86,7 +91,7 @@ impl Gui {
                         let joint_name = &joint.name;
 
                         CollapsingHeader::new(joint_name).show(ui, |ui| {
-                            Self::show_joint_transforms(joint, ui);
+                            Self::show_joint_transforms(joint, animations, ui);
                         });
                     }
                 });
@@ -94,16 +99,18 @@ impl Gui {
         } else {
             // I assume there is only 1 skeleton in the models we are going to work with
             for child_node in &mut node.children {
-                self.gui_joints_window_helper(child_node, egui_ctx);
+                self.gui_joints_window_helper(child_node, animations, egui_ctx);
             }
         }
     }
 
-    fn show_joint_transforms(joint: &mut crate::model::Joint, ui: &mut Ui) {
+    fn show_joint_transforms(joint: &mut Joint, animations: &mut Animations, ui: &mut Ui) {
         let trans = &mut joint.transform.translation;
+        let (axis, angle) = joint.transform.rotation.to_axis_angle();
+        let mut angle = angle.to_degrees();
 
-        ui.label("Translation");
-        ui.group(|ui| {
+        let response = ui.group(|ui| {
+            ui.label("Translation");
             ui.horizontal(|ui| {
                 ui.label("x");
                 ui.add(egui::DragValue::new(&mut trans.x).speed(0.03));
@@ -112,27 +119,8 @@ impl Gui {
                 ui.label("z");
                 ui.add(egui::DragValue::new(&mut trans.z).speed(0.03));
             });
-        });
 
-        let scale = &mut joint.transform.scale;
-
-        ui.label("Scale");
-        ui.group(|ui| {
-            ui.horizontal(|ui| {
-                ui.label("x");
-                ui.add(egui::DragValue::new(&mut scale.x).speed(0.01));
-                ui.label("y");
-                ui.add(egui::DragValue::new(&mut scale.y).speed(0.01));
-                ui.label("z");
-                ui.add(egui::DragValue::new(&mut scale.z).speed(0.01));
-            });
-        });
-
-        let (axis, angle) = joint.transform.rotation.to_axis_angle();
-        let mut angle = angle.to_degrees();
-
-        ui.label("Rotation");
-        ui.group(|ui| {
+            ui.label("Rotation");
             ui.horizontal(|ui| {
                 ui.label("angle");
                 ui.add(
@@ -142,6 +130,10 @@ impl Gui {
                 );
             });
         });
+
+        if response.response.hovered() {
+            animations.animation_control = AnimationControl::Static;
+        }
 
         joint.transform.rotation = Quat::from_axis_angle(axis.normalize(), angle.to_radians());
     }
