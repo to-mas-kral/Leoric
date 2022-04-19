@@ -53,7 +53,7 @@ impl MyWindow {
         let gl_ctx = window.gl_create_context().map_err(|e| eyre!("{e}"))?;
         let gl_attr = video_subsystem.gl_attr();
         gl_attr.set_context_major_version(4);
-        gl_attr.set_context_minor_version(6);
+        gl_attr.set_context_minor_version(2);
         gl_attr.set_context_profile(GLProfile::Core);
         gl_attr.set_context_flags().debug().set();
         gl_attr.set_double_buffer(true);

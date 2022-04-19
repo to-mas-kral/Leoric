@@ -25,7 +25,7 @@ mod model;
 /// Handles rendering the whole scene.
 mod renderer;
 
-/// Abstractions for working with some OpenGL.
+/// Abstractions for working with OpenGL.
 mod ogl;
 
 /// Handles window creation and egui boilerplate.
@@ -68,7 +68,7 @@ fn main() -> Result<()> {
         gui.render(&mut scene, &mut camera, &mut window.egui_ctx);
 
         unsafe {
-            // Reset gl properties so Egui cna render properly
+            // Reset gl properties so Egui can render properly
             gl::Disable(gl::DEPTH_TEST);
             gl::Disable(gl::CULL_FACE);
             gl::PolygonMode(gl::FRONT, gl::FILL);
