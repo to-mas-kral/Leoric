@@ -1,7 +1,7 @@
 ![build badge](https://github.com/TomasKralCZ/Leoric/actions/workflows/main.yml/badge.svg)
 
 # Leoric
-Skeletal animation project for my Computer Graphics course.
+Skeletal animation project for a Computer Graphics course.
 
 # Showcase
 ![Cat](resources/showcase.gif)
