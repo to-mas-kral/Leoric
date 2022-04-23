@@ -6,7 +6,7 @@ pub struct Camera {
     up: Vec3,
 
     pub move_speed: f32,
-    look_sensitivity: f32,
+    pub look_sensitivity: f32,
 
     current_x: f32,
     current_y: f32,
@@ -42,6 +42,11 @@ impl Camera {
         }
 
         self.view_matrix
+    }
+
+    pub fn set_pos(&mut self, pos: Vec3) {
+        self.pos = pos;
+        self.changed = true;
     }
 
     pub fn move_forward(&mut self, d: f32) {

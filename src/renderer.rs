@@ -65,6 +65,23 @@ impl Renderer {
         gui_state: &Gui,
     ) {
         unsafe {
+            gl::Viewport(0, 0, window.width as i32, window.height as i32);
+            gl::Enable(gl::DEPTH_TEST);
+
+            gl::Enable(gl::CULL_FACE);
+            gl::FrontFace(gl::CCW);
+
+            if gui_state.draw_skeleton {
+                gl::CullFace(gl::FRONT);
+                gl::PolygonMode(gl::BACK, gl::LINE);
+            } else {
+                gl::CullFace(gl::BACK);
+                gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+            }
+
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
             gl::ClearColor(0.15, 0.15, 0.15, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
@@ -92,6 +109,13 @@ impl Renderer {
 
         let transform = model.root.transform;
         self.render_node(&mut model.root, transform, gui_state);
+
+        unsafe {
+            // Reset gl properties so Egui can render properly
+            gl::Disable(gl::DEPTH_TEST);
+            gl::Disable(gl::CULL_FACE);
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+        }
     }
 
     fn render_node(&mut self, node: &mut Node, outer_transform: Mat4, gui_state: &Gui) {
@@ -197,15 +221,6 @@ impl Renderer {
     }
 
     fn debug_joints(&mut self, world_transforms: &[Mat4], joints: &[Joint]) {
-        unsafe {
-            gl::Viewport(
-                0,
-                0,
-                (self.window_size.0 as f32 * 0.4) as i32,
-                (self.window_size.1 as f32 * 0.4) as i32,
-            );
-        }
-
         self.settings.inner.do_skinning = false;
         self.settings.update();
 
@@ -225,10 +240,6 @@ impl Renderer {
 
         self.transforms.inner.model = tmp;
         self.transforms.update();
-
-        unsafe {
-            gl::Viewport(0, 0, self.window_size.0, self.window_size.1);
-        }
     }
 
     fn apply_animation(&mut self, model: &mut Model) {

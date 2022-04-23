@@ -53,26 +53,8 @@ fn main() -> Result<()> {
 
         window.begin_frame();
 
-        unsafe {
-            gl::Viewport(0, 0, window.width as i32, window.height as i32);
-            gl::Enable(gl::DEPTH_TEST);
-            gl::Enable(gl::CULL_FACE);
-            gl::CullFace(gl::BACK);
-            gl::FrontFace(gl::CCW);
-            gl::PolygonMode(gl::FRONT, gl::FILL);
-            gl::Enable(gl::BLEND);
-            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-        }
-
         renderer.render(&mut scene, &mut camera, &window, &gui);
-        gui.render(&mut scene, &mut camera, &mut window.egui_ctx);
-
-        unsafe {
-            // Reset gl properties so Egui can render properly
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Disable(gl::CULL_FACE);
-            gl::PolygonMode(gl::FRONT, gl::FILL);
-        }
+        gui.prepare(&mut scene, &mut camera, &mut window.egui_ctx);
 
         let should_quit = window.end_frame();
         if should_quit {

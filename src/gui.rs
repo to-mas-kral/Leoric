@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use egui::{CollapsingHeader, CtxRef, RichText, Slider, Ui};
-use glam::Quat;
+use glam::{Quat, Vec3};
 
 use crate::{
     camera::Camera,
@@ -28,7 +28,7 @@ impl Gui {
         }
     }
 
-    pub fn render(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
+    pub fn prepare(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
         self.gui_model_hierarchy_window(scene, egui_ctx);
         self.gui_joints_window(&mut scene[self.selected_model], egui_ctx);
         self.gui_side_panel(scene, camera, egui_ctx);
@@ -173,6 +173,10 @@ impl Gui {
                         .text("Camera move speed")
                         .smart_aim(false),
                 );
+
+                if ui.button("Reset Camera").clicked() {
+                    camera.set_pos(Vec3::new(0.0, 0.0, 3.0));
+                }
 
                 egui::global_dark_light_mode_switch(ui);
             });

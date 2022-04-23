@@ -20,7 +20,7 @@ void main() {
     // ambient
     vec4 ambientColor = texColor * 0.1;
 
-    vec3 lightPos = vec3(20, 10, 30);
+    vec3 lightPos = vec3(200, 100, 300);
 
     vec3 lightDir = normalize(lightPos - vsOut.fragPos);
     vec3 norm = normalize(vsOut.normal);
