@@ -7,8 +7,7 @@ use crate::{
     camera::Camera,
     gui::Gui,
     model::{
-        AnimationControl, AnimationTransform, DataBundle, Joint, Mesh, Model, Node, Primitive,
-        PrimitiveTexture,
+        AnimationControl, AnimationTransform, Joint, Mesh, Model, Node, Primitive, PrimitiveTexture,
     },
     ogl::{shader::Shader, uniform_buffer::UniformBuffer},
     window::MyWindow,
@@ -92,16 +91,10 @@ impl Renderer {
         self.apply_animation(model);
 
         let transform = model.root.transform;
-        self.render_node(&mut model.root, &model.bundle, transform, gui_state);
+        self.render_node(&mut model.root, transform, gui_state);
     }
 
-    fn render_node(
-        &mut self,
-        node: &mut Node,
-        bundle: &DataBundle,
-        outer_transform: Mat4,
-        gui_state: &Gui,
-    ) {
+    fn render_node(&mut self, node: &mut Node, outer_transform: Mat4, gui_state: &Gui) {
         let next_level_transform = outer_transform * node.transform;
 
         if let Some(joints) = &mut node.joints {
@@ -119,7 +112,7 @@ impl Renderer {
         }
 
         for node in &mut node.children {
-            self.render_node(node, bundle, next_level_transform, gui_state);
+            self.render_node(node, next_level_transform, gui_state);
         }
     }
 

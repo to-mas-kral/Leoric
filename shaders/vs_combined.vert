@@ -22,8 +22,8 @@ layout (std140, binding = 3) uniform Settings {
 
 out VsOut {
     vec2 texCoords;
-    // vec3 normal;
-    // vec3 fragPos;
+    vec3 normal;
+    vec3 fragPos;
 } vsOut;
 
 void main() {
@@ -46,8 +46,6 @@ void main() {
     gl_Position = projection * view * modelTransform * vec4(inPos, 1.0);
 
     vsOut.texCoords = inTexcoords;
-
-    // FIMXE: light calculations model matrices
-    // normal = mat3(transpose(inverse(model))) * inNormal;
-    // fragPos = vec3(model * vec4(inPos, 1.0));
+    vsOut.normal = mat3(transpose(inverse(modelTransform))) * inNormal;
+    vsOut.fragPos = vec3(modelTransform * vec4(inPos, 1.0));
 }

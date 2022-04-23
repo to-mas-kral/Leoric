@@ -38,9 +38,6 @@ impl DataBundle {
 
 /// This represents a gltf model and contains necessary data for rendering.
 pub struct Model {
-    /// Texture data points to vectors in this bundle
-    #[allow(unused)]
-    pub bundle: DataBundle,
     /// An artifical root node
     pub root: Node,
     pub name: String,
@@ -82,7 +79,6 @@ impl Model {
         };
 
         Ok(Model {
-            bundle,
             root,
             name,
             animations,
