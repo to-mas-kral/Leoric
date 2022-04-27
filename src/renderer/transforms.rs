@@ -4,6 +4,7 @@ use glam::Mat4;
 
 use crate::ogl::uniform_buffer::UniformBufferElement;
 
+/// Uniform buffer element that stores the transformation matrices
 pub struct Transforms {
     pub projection: Mat4,
     pub view: Mat4,
@@ -43,7 +44,7 @@ impl UniformBufferElement for Transforms {
                 gl::UNIFORM_BUFFER,
                 3 * size_of::<[f32; 16]>() as isize,
                 ptr::null() as _,
-                gl::STATIC_DRAW,
+                gl::DYNAMIC_DRAW,
             );
         }
     }

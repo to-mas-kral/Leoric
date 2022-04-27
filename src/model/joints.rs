@@ -3,11 +3,18 @@ use glam::Mat4;
 
 use super::{DataBundle, Transform};
 
+/// A structure containing the joint data (the skeleton).
+/// The skeleton is represented as a tree in the gltf format.
+///
+/// I decided to store the joint hierarchy in a flat buffer.
+/// Every Joint has an Optional index to it's parent (the index of the root is `Option::None`).
+/// The parent nodes are always place *before* their child nodes in the buffer.
 pub struct Joints {
     pub joints: Vec<Joint>,
 }
 
 impl Joints {
+    /// Creates the joint hierarchy from the gltf::Skin struct, gltf::Scene struct and the DataBundle
     pub fn from_gltf(
         bundle: &mut DataBundle,
         skin: &gltf::Skin,
@@ -99,6 +106,7 @@ impl Joints {
     }
 }
 
+/// A structure representing a single Joint in the skeleton
 pub struct Joint {
     /// The same node index as in the gltf file
     pub node_index: usize,
@@ -106,6 +114,7 @@ pub struct Joint {
     pub parent: Option<usize>,
     /// The matrix that transforms this node to the origin
     pub inverse_bind_matrix: Mat4,
+    /// The transform of the joint relative to it's parent
     pub transform: Transform,
     /// Name for debug purposes
     pub name: String,

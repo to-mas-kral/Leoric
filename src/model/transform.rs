@@ -12,6 +12,7 @@ pub struct Transform {
 }
 
 impl Transform {
+    /// Creates the transform from the gltf::Node struct
     pub fn from_gltf(node: &gltf::Node) -> Self {
         let (translation, rotation, scale) = match node.transform() {
             GTransform::Matrix { matrix: mat } => {

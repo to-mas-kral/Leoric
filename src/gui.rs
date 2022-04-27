@@ -28,12 +28,16 @@ impl Gui {
         }
     }
 
-    pub fn prepare(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
+    /// Creates the GUI.
+    ///
+    /// Immediate mode GUI - is called every frame.
+    pub fn create_gui(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
         self.gui_model_hierarchy_window(scene, egui_ctx);
         self.gui_joints_window(&mut scene[self.selected_model], egui_ctx);
         self.gui_side_panel(scene, camera, egui_ctx);
     }
 
+    /// Create the subwindow containing the model hierarchy
     fn gui_model_hierarchy_window(&mut self, scene: &[Model], egui_ctx: &mut CtxRef) {
         let model = &scene[self.selected_model];
 
@@ -45,6 +49,7 @@ impl Gui {
             });
     }
 
+    /// Recusrive - creates the node hierarchy inside the model hierarchy window
     fn gui_node(&mut self, node: &Node, ui: &mut Ui) {
         let default_open = node.children.len() == 1;
 
@@ -78,6 +83,7 @@ impl Gui {
         self.gui_joints_window_helper(&mut model.root, &mut model.animations, egui_ctx);
     }
 
+    /// Recursive - creates the joints window and it's nodes
     fn gui_joints_window_helper(
         &mut self,
         node: &mut Node,
@@ -90,6 +96,7 @@ impl Gui {
                     for joint in joints.joints.iter_mut() {
                         let joint_name = &joint.name;
 
+                        // FIXME: for some reason there is an ID collision when rendering the droid model... maybe a bug in egui ?
                         CollapsingHeader::new(joint_name).show(ui, |ui| {
                             Self::show_joint_transforms(joint, animations, ui);
                         });
@@ -104,6 +111,7 @@ impl Gui {
         }
     }
 
+    /// Creates the gui for transforms of a specific joint
     fn show_joint_transforms(joint: &mut Joint, animations: &mut Animations, ui: &mut Ui) {
         let trans = &mut joint.transform.translation;
         let (axis, angle) = joint.transform.rotation.to_axis_angle();
@@ -138,6 +146,7 @@ impl Gui {
         joint.transform.rotation = Quat::from_axis_angle(axis.normalize(), angle.to_radians());
     }
 
+    /// Creates a gui for the side panel
     fn gui_side_panel(&mut self, scene: &mut [Model], camera: &mut Camera, egui_ctx: &mut CtxRef) {
         egui::SidePanel::right("Side Panel").show(egui_ctx, |ui| {
             ui.group(|ui| {
@@ -169,7 +178,7 @@ impl Gui {
                 }
 
                 ui.add(
-                    Slider::new(&mut camera.move_speed, 0.0..=15.)
+                    Slider::new(&mut camera.move_speed, 0.0..=0.2)
                         .text("Camera move speed")
                         .smart_aim(false),
                 );
@@ -195,6 +204,7 @@ impl Gui {
         });
     }
 
+    /// Creates a gui for the animations inside the side panel
     fn show_animation_view(&mut self, scene: &mut [Model], ui: &mut Ui) {
         let selected_model = &mut scene[self.selected_model];
         let animations = &mut selected_model.animations;

@@ -41,7 +41,7 @@ fn main() -> Result<()> {
     let mut gui = Gui::new();
     let mut renderer = Renderer::new()?;
     let mut camera = Camera::new(
-        Vec3::new(0., 0., 0.),
+        Vec3::new(0.2, 3., 7.5),
         0.05,
         0.05,
         window.width,
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         window.begin_frame();
 
         renderer.render(&mut scene, &mut camera, &window, &gui);
-        gui.prepare(&mut scene, &mut camera, &mut window.egui_ctx);
+        gui.create_gui(&mut scene, &mut camera, &mut window.egui_ctx);
 
         let should_quit = window.end_frame();
         if should_quit {
@@ -67,6 +67,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Adds models to the scene
 fn setup_scene() -> Result<Vec<Model>> {
     let mut scene = Vec::new();
 
@@ -93,6 +94,7 @@ fn setup_scene() -> Result<Vec<Model>> {
     Ok(scene)
 }
 
+/// Modifies camera state based on the mouse / keyboard inputs
 fn handle_inputs(event_pump: &mut EventPump, camera: &mut Camera) {
     let k = event_pump.keyboard_state();
 

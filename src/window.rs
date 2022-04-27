@@ -13,23 +13,36 @@ use sdl2::{
 
 use egui_sdl2_gl as egui_backend;
 
+/// A component that handles the window creation and egui drawing
 pub struct MyWindow {
+    /// SDL2 context
     _sdl_context: Sdl,
+    /// SDL2 video subsystem
     _video_subsystem: VideoSubsystem,
+    /// SDL2 window
     window: Window,
+    /// The OpenGL context
     _gl_ctx: GLContext,
+    /// SDL2 event pump
     pub event_pump: EventPump,
-
+    /// The egui context
     pub egui_ctx: CtxRef,
+    /// Egui state
     egui_state: EguiStateHandler,
+    /// egui_sdl2_gl rednerer
     painter: Painter,
+    /// Time when the window was creaetd
     start_time: Instant,
-
+    /// Width of the window
     pub width: u32,
+    /// Height of the window
     pub height: u32,
 }
 
 impl MyWindow {
+    /// Create the window with the specific title.
+    ///
+    /// Initializes the OpenGL context, the egui renderer and the SDL2 video subsystem.
     pub fn new(title: &str) -> Result<Self> {
         let sdl_context = sdl2::init().map_err(|e| eyre!("{e}"))?;
         let video_subsystem = sdl_context.video().map_err(|e| eyre!("{e}"))?;
@@ -64,8 +77,6 @@ impl MyWindow {
             .map_err(|e| eyre!("{e}"))?;
 
         let shader_ver = ShaderVersion::Default;
-        // On linux use GLES SL 100+, like so:
-        //let shader_ver = ShaderVersion::Adaptive;
 
         // It's better if we calculate this ourselves
         let custom_dpi = {
@@ -98,6 +109,7 @@ impl MyWindow {
         })
     }
 
+    /// Resets state at the beginning of a frame
     pub fn begin_frame(&mut self) {
         self.egui_state.input.time = Some(self.start_time.elapsed().as_secs_f64());
         self.egui_ctx.begin_frame(self.egui_state.input.take());
@@ -105,6 +117,13 @@ impl MyWindow {
 
     /// Finalizes the frame and returns if the render loop should terminate
     pub fn end_frame(&mut self) -> bool {
+        unsafe {
+            // Reset gl properties so Egui can render properly
+            gl::Disable(gl::DEPTH_TEST);
+            gl::Disable(gl::CULL_FACE);
+            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
+        }
+
         let (egui_output, paint_cmds) = self.egui_ctx.end_frame();
         // Process ouput
         self.egui_state.process_output(&self.window, &egui_output);
@@ -124,7 +143,7 @@ impl MyWindow {
             } */
         } else {
             self.painter
-            .paint_jobs(None, paint_jobs, &self.egui_ctx.font_image());
+                .paint_jobs(None, paint_jobs, &self.egui_ctx.font_image());
             self.window.gl_swap_window();
         }
         for event in self.event_pump.poll_iter() {

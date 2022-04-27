@@ -9,11 +9,13 @@ use gltf::animation::{
 
 use super::DataBundle;
 
+/// Contains animation data and also the current state of the animation
 pub struct Animations {
     pub animations: Vec<Animation>,
     pub animation_control: AnimationControl,
 }
 
+/// The type of current animation
 pub enum AnimationControl {
     Loop {
         active_animation: usize,
@@ -32,6 +34,7 @@ pub struct Animation {
     pub current_time: f32,
     /// The time in seconds of the last keyframe, start time is implicitly 0
     pub end_time: f32,
+    /// Optional name of the animation
     pub name: Option<String>,
 }
 
@@ -50,6 +53,7 @@ impl Animation {
         }
     }
 
+    /// Creates the animation from a gltf::Document struct and the DataBundle
     pub fn from_gltf(gltf: &gltf::Document, bundle: &DataBundle) -> Result<Animations> {
         let mut animations = Vec::new();
 
@@ -131,6 +135,8 @@ impl Animation {
     }
 }
 
+/// One channel (sometimes called track) of the animation
+/// == keyframe times and their respective transforms applied to a single node
 pub struct Channel {
     /// Index of the node this channel is applied to
     pub node: usize,
@@ -157,6 +163,7 @@ impl Channel {
         }
     }
 
+    /// Get a transform at a specific index of (keyframe_times - transforms)
     pub fn get_fixed_transform(&self, index: usize) -> AnimationTransform {
         match self.interpolation_type {
             Interpolation::Linear => {}
@@ -175,6 +182,8 @@ impl Channel {
         }
     }
 
+    /// Get an interpolated transform between (keyframe_times - transforms)[start_index..start_index + 1]
+    /// interpolated by the 'coeff' coefficient
     /// <https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#appendix-c-interpolation>
     pub fn interpolate_transforms(
         &self,
@@ -218,12 +227,14 @@ impl Channel {
     }
 }
 
+/// The type of all animation transforms in the channel
 pub enum AnimationTransforms {
     Translations(Vec<Vec3>),
     Rotations(Vec<Quat>),
     Scales(Vec<Vec3>),
 }
 
+/// The type of a single animation transform
 pub enum AnimationTransform {
     Translation(Vec3),
     Rotation(Quat),

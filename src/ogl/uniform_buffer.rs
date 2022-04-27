@@ -1,5 +1,4 @@
 /// Abstraction for working with UniformBuffers.
-/// The syntax might be a bit weird.
 /// UniformBuffer is generic over T, and T must implement the UniformBufferElement trait.
 pub struct UniformBuffer<T: UniformBufferElement> {
     pub id: u32,
@@ -30,7 +29,7 @@ where
         s
     }
 
-    /// Update the UniformBuffer with the current state of `inner`
+    /// Update the UniformBuffer with the current data
     pub fn update(&self) {
         unsafe {
             gl::BindBuffer(gl::UNIFORM_BUFFER, self.id);

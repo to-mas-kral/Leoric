@@ -13,13 +13,18 @@ use crate::ogl;
 
 use super::DataBundle;
 
+/// Gltf terminology is needlessly confusing.
 /// A gltf 'Mesh' contains multiple real sub-meshes (called Primitives in the gltf parlance)
 pub struct Mesh {
+    /// 'Primitives' of the 'mesh'
+    // TODO: could be optimized - most meshes probably only contain a single primitive - avoid allocating a vector
     pub primitives: Vec<Primitive>,
+    /// Name of the 'Mesh'
     pub name: Option<String>,
 }
 
 impl Mesh {
+    /// Create a mesh from the gltf::Mesh struct and the DataBundle
     pub fn from_gltf(mesh: &gltf::Mesh, bundle: &mut DataBundle) -> Result<Self> {
         let name = mesh.name().map(|n| n.to_owned());
 
@@ -35,18 +40,28 @@ impl Mesh {
 
 /// A Primitive represents a single 'mesh' in the normal meaning of that word
 /// (a collection of vertices with a specific topology like Triangles or Lines).
+///
+// TODO: It's not needed to store all this data in RAM.
+// TODO: load vertex data without allocation and copying
 pub struct Primitive {
+    /// A texture (if any) of this mesh
     pub texture_info: PrimitiveTexture,
+    /// OpenGL VAO identifier
     pub vao: u32,
-
+    /// Vertex indices
     pub indices: Indices,
+    /// Vertex positions
     pub positions: Vec<Vec3>,
+    /// Vertex texture coordinates
     pub texcoords: Vec<Vec2>,
+    /// Vertex normals
     pub normals: Vec<Vec3>,
+    /// Vertex skin data (joints indices, weights)
     pub skin: Option<PrimSkin>,
 }
 
 impl Primitive {
+    /// Creates the primitive from the gltf::Primitive struct and the DataBundle
     pub fn from_gltf(primitive: &gltf::Primitive, bundle: &mut DataBundle) -> Result<Self> {
         let mode = primitive.mode();
 
@@ -55,6 +70,7 @@ impl Primitive {
         }
 
         let reader = primitive.reader(|buffer| Some(&bundle.buffers[buffer.index()]));
+
         let positions = reader
             .read_positions()
             .ok_or(eyre!("primitive doesn't containt positions"))?
@@ -74,6 +90,7 @@ impl Primitive {
         let mut texture_set = 0;
         while let Some(texcoords_reader) = reader.read_tex_coords(texture_set) {
             if texture_set >= 1 {
+                // Used for loading textures other than the diffuse map
                 //eprintln!("WARN: primitive has more than 1 texture coordinate set");
                 break;
             }
@@ -128,6 +145,7 @@ impl Primitive {
         Ok(primitive)
     }
 
+    /// Creates the OpenGL buffer from the loaded vertex data
     fn create_buffers(&mut self, material: &gltf::Material, bundle: &mut DataBundle) {
         let mut indices = 0;
         let mut vao = 0;
@@ -319,6 +337,7 @@ pub enum Indices {
 }
 
 impl Indices {
+    /// The size (in bytes) of the buffer
     pub fn size(&self) -> usize {
         match self {
             Indices::U32(buf) => buf.len() * size_of::<u32>(),
@@ -327,6 +346,7 @@ impl Indices {
         }
     }
 
+    /// The lenght (in elements) of the buffer
     pub fn len(&self) -> usize {
         match self {
             Indices::U32(buf) => buf.len(),
@@ -335,6 +355,7 @@ impl Indices {
         }
     }
 
+    /// A pointer to the start of the buffer
     pub fn ptr(&self) -> *const std::ffi::c_void {
         match self {
             Indices::U32(buf) => buf.as_ptr() as _,
@@ -343,6 +364,7 @@ impl Indices {
         }
     }
 
+    /// A GL_TYPE corresponding to the variant of the buffer
     pub fn gl_type(&self) -> GLenum {
         match self {
             Indices::U32(_) => gl::UNSIGNED_INT,

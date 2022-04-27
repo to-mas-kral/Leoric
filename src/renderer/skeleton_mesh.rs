@@ -6,6 +6,7 @@ use crate::{
 };
 
 // TODO: do not create a new buffer every frame
+/// Draws the joints by their current world transforms
 pub fn draw_joints(world_transforms: &[Mat4], shader: &Shader) {
     let mut positions = Vec::new();
     let texcoords = vec![Vec2::ZERO; world_transforms.len()];
@@ -38,6 +39,7 @@ pub fn draw_joints(world_transforms: &[Mat4], shader: &Shader) {
     });
 }
 
+/// Drwas the bones of the joints specified by the joints array and their world_transforms array
 pub fn draw_bones(world_transforms: &[Mat4], joints: &[Joint], shader: &Shader) {
     let mut positions = Vec::new();
 

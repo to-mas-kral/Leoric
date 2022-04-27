@@ -98,6 +98,9 @@ pub fn init_debug() {
     };
 }
 
+/// The OpenGL debug callback.
+///
+/// 'extern "system"' specifies the correct ABI for all platforms
 extern "system" fn gl_debug_callback(
     _src: u32,
     _typ: u32,

@@ -4,6 +4,7 @@ use glam::Vec4;
 
 use crate::ogl::uniform_buffer::UniformBufferElement;
 
+/// Uniform buffer element that stores the material settings
 pub struct Material {
     pub base_color_factor: Vec4,
 }
@@ -34,7 +35,7 @@ impl UniformBufferElement for Material {
                 gl::UNIFORM_BUFFER,
                 size as isize,
                 ptr::null() as _,
-                gl::STATIC_DRAW,
+                gl::DYNAMIC_DRAW,
             );
         }
     }

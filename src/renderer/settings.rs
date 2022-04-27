@@ -2,6 +2,7 @@ use std::{mem::size_of, ptr};
 
 use crate::ogl::uniform_buffer::UniformBufferElement;
 
+/// Uniform buffer element that stores the rendering 'settings' (controls)
 pub struct Settings {
     pub do_skinning: bool,
 }
@@ -35,7 +36,7 @@ impl UniformBufferElement for Settings {
                 gl::UNIFORM_BUFFER,
                 size as isize,
                 ptr::null() as _,
-                gl::STATIC_DRAW,
+                gl::DYNAMIC_DRAW,
             );
         }
     }

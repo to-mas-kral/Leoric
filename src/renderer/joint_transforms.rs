@@ -6,6 +6,7 @@ use crate::ogl::uniform_buffer::UniformBufferElement;
 
 const MAX_JOINT_TRANSFORMS: usize = 256;
 
+/// Uniform buffer element that stores the vertex joint transforms
 pub struct JointTransforms {
     pub matrices: Vec<Mat4>,
 }
@@ -48,7 +49,7 @@ impl UniformBufferElement for JointTransforms {
                 gl::UNIFORM_BUFFER,
                 size as isize,
                 ptr::null() as _,
-                gl::STATIC_DRAW,
+                gl::DYNAMIC_DRAW,
             );
         }
     }

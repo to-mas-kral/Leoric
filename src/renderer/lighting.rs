@@ -4,6 +4,7 @@ use glam::Vec3;
 
 use crate::ogl::uniform_buffer::UniformBufferElement;
 
+/// Uniform buffer element that stores the lighing data
 pub struct Lighting {
     pub light_pos: Vec3,
 }
@@ -33,7 +34,7 @@ impl UniformBufferElement for Lighting {
                 gl::UNIFORM_BUFFER,
                 size as isize,
                 ptr::null() as _,
-                gl::STATIC_DRAW,
+                gl::DYNAMIC_DRAW,
             );
         }
     }

@@ -17,7 +17,6 @@ mod joint_transforms;
 mod lighting;
 mod material;
 mod settings;
-/// Used for drawing a debug mesh of the skeleton
 mod skeleton_mesh;
 mod transforms;
 
@@ -26,21 +25,29 @@ use self::{
     transforms::Transforms,
 };
 
+/// A component responsible for rendering the scene.
 pub struct Renderer {
+    /// Shader for meshes containing texture data
     texture_shader: Shader,
+    /// Shader for meshes without textures
     color_shader: Shader,
-
+    /// Current MVP transformation matrices
     transforms: UniformBuffer<Transforms>,
+    /// Joint transformation matrices
     joint_transforms: UniformBuffer<JointTransforms>,
+    /// Rendering settings
     settings: UniformBuffer<Settings>,
+    /// Current mesh material
     material: UniformBuffer<Material>,
     #[allow(unused)]
+    /// Current lighting settings
     lighting: UniformBuffer<Lighting>,
-
+    /// Current joint / node transforms
     node_animation_transforms: Vec<NodeAnimationTransform>,
 }
 
 impl Renderer {
+    /// Create a new renderer
     pub fn new() -> Result<Self> {
         let texture_shader =
             Shader::from_file("shaders/vs_combined.vert", "shaders/fs_texture.frag")?;
@@ -58,6 +65,7 @@ impl Renderer {
         })
     }
 
+    /// Render a new frame
     pub fn render(
         &mut self,
         models: &mut [Model],
@@ -100,23 +108,17 @@ impl Renderer {
         let model = &mut models[gui_state.selected_model];
 
         self.transforms.inner.projection = persp;
-        self.transforms.inner.view = camera.get_view_mat();
+        self.transforms.inner.view = camera.view_mat();
         self.transforms.inner.model = model.transform;
         self.transforms.update();
 
-        self.apply_animation(model);
+        self.recalculate_animation(model);
 
         let transform = model.transform;
         self.render_node(&mut model.root, transform, gui_state);
-
-        unsafe {
-            // Reset gl properties so Egui can render properly
-            gl::Disable(gl::DEPTH_TEST);
-            gl::Disable(gl::CULL_FACE);
-            gl::PolygonMode(gl::FRONT_AND_BACK, gl::FILL);
-        }
     }
 
+    /// Recursive - traverses the node hierarchy and handles each node.
     fn render_node(&mut self, node: &mut Node, outer_transform: Mat4, gui_state: &Gui) {
         let next_level_transform = outer_transform * node.transform;
 
@@ -139,6 +141,7 @@ impl Renderer {
         }
     }
 
+    /// Renders the mesh of a node
     fn render_mesh(&mut self, mesh: &Mesh, node_transform: Mat4) {
         self.transforms.inner.model = node_transform;
         self.transforms.update();
@@ -185,6 +188,7 @@ impl Renderer {
         }
     }
 
+    /// Recalculates the skin matrices for each joint
     pub fn recalc_skin_matrices(
         &mut self,
         joints: &mut [Joint],
@@ -193,8 +197,11 @@ impl Renderer {
     ) {
         self.apply_joint_transforms(joints);
 
+        // world transforms of each joint after applying the animation for the current frame
         let mut world_transforms = vec![Mat4::IDENTITY; joints.len()];
 
+        // Cascade transformation from parent joints to child joints.
+        // Parent joints are always placed before child joints in the buffer, so they are processed first.
         for i in 0..joints.len() {
             let transform = match joints[i].parent {
                 Some(parent_index) => world_transforms[parent_index] * joints[i].transform.matrix(),
@@ -219,6 +226,7 @@ impl Renderer {
         self.joint_transforms.update();
     }
 
+    /// Draws a debug view of the skeleton
     fn debug_joints(&mut self, world_transforms: &[Mat4], joints: &[Joint]) {
         self.settings.inner.do_skinning = false;
         self.settings.update();
@@ -241,7 +249,8 @@ impl Renderer {
         self.transforms.update();
     }
 
-    fn apply_animation(&mut self, model: &mut Model) {
+    /// Recalculates the animation transform for the current time / animation
+    fn recalculate_animation(&mut self, model: &mut Model) {
         let active_animation = match model.animations.animation_control {
             AnimationControl::Loop {
                 active_animation,
@@ -249,6 +258,7 @@ impl Renderer {
             } => {
                 let anim = &mut model.animations.animations[active_animation];
 
+                // Calculate current time inside the animation
                 let mut since_start = Instant::now().duration_since(start_time).as_secs_f32();
                 if since_start > anim.end_time {
                     since_start %= anim.end_time;
@@ -265,12 +275,14 @@ impl Renderer {
         let anim = &model.animations.animations[active_animation];
         let current_time = anim.current_time;
 
+        // Interpolate the animation transforms
         for channel in &anim.channels {
             let keyframe_times = &channel.keyframe_times;
 
             'inner: for i in 0..keyframe_times.len() {
                 let start_time = keyframe_times[i];
 
+                // If the current time is before the start time of this specific channel, take the first transform.
                 if (i == keyframe_times.len() - 1) || (i == 0 && current_time < start_time) {
                     let transform = channel.get_fixed_transform(i);
                     self.node_animation_transforms
@@ -287,12 +299,13 @@ impl Renderer {
 
                     self.node_animation_transforms
                         .push(NodeAnimationTransform::new(channel.node, transform));
-                    break;
+                    break 'inner;
                 }
             }
         }
     }
 
+    /// Appplies the current animatoin transforms to the joints
     fn apply_joint_transforms(&self, joints: &mut [Joint]) {
         for joint in joints {
             for nat in &self.node_animation_transforms {
@@ -312,6 +325,7 @@ impl Renderer {
     }
 }
 
+/// A struct that holds which transforms should be aplied to which nodes for the current frame
 struct NodeAnimationTransform {
     /// Index of the node
     node: usize,
