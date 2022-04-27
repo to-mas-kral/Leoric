@@ -11,7 +11,6 @@ gltf = "1.0.0"
 egui_sdl2_gl = "0.16.0"
 egui = "0.16"
 sdl2 = "0.35"
-rand = "0.8.5"
 
 [profile.dev.package."*"]
 opt-level = 3
