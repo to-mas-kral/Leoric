@@ -5,7 +5,7 @@ use std::{thread, time::Duration};
 
 use camera::Camera;
 use eyre::Result;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use gui::Gui;
 use model::Model;
 use renderer::Renderer;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     let mut renderer = Renderer::new()?;
     let mut camera = Camera::new(
         Vec3::new(0., 0., 0.),
-        0.3,
+        0.05,
         0.05,
         window.width,
         window.height,
@@ -82,19 +82,13 @@ fn setup_scene() -> Result<Vec<Model>> {
         Ok(())
     };
 
-    add("resources/phoenix_bird/Bird.gltf")?;
-    add("resources/animated_goblin_vs._vampire_spell_casting_loop/Duel.gltf")?;
     add("resources/dancing_stormtrooper/Stormtrooper.gltf")?;
     add("resources/animated_humanoid_robot/Droid.gltf")?;
-    //add("resources/reap_the_whirlwind/Whirlwind.gltf")?;
-    add("resources/toon_cat_free/Cat.gltf")?;
     add("resources/pakistan_girl_-_animated/Girl.gltf")?;
-    add("resources/elephant_animation_idle/Elephant.gltf")?;
+    add("resources/toon_cat_free/Cat.gltf")?;
 
-    add("resources/CesiumMan.glb")?;
-    add("resources/RiggedFigure.gltf")?;
-    add("resources/RiggedSimple.gltf")?;
-    add("resources/Buggy.gltf")?;
+    let cat = scene.last_mut().unwrap();
+    cat.transform = Mat4::from_scale(Vec3::splat(0.015));
 
     Ok(scene)
 }

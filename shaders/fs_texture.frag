@@ -10,6 +10,10 @@ layout (std140, binding = 4) uniform Material {
     uniform vec4 texBaseColorFactor;
 };
 
+layout (std140, binding = 5) uniform Lighting {
+    uniform vec3 lightPos;
+};
+
 uniform sampler2D myTexture;
 
 out vec4 FragColor;
@@ -18,9 +22,7 @@ void main() {
     vec4 texColor = texture(myTexture, vsOut.texCoords) * texBaseColorFactor;
 
     // ambient
-    vec4 ambientColor = texColor * 0.1;
-
-    vec3 lightPos = vec3(200, 100, 300);
+    vec4 ambientColor = texColor * 0.4;
 
     vec3 lightDir = normalize(lightPos - vsOut.fragPos);
     vec3 norm = normalize(vsOut.normal);

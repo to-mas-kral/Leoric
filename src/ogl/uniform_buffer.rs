@@ -18,14 +18,16 @@ where
             gl::GenBuffers(1, &mut id);
             gl::BindBuffer(gl::UNIFORM_BUFFER, id);
 
-            let binding = <T as UniformBufferElement>::BINDING;
+            let binding = T::BINDING;
             gl::BindBufferBase(gl::UNIFORM_BUFFER, binding, id);
 
             inner.init_buffer();
             gl::BindBuffer(gl::UNIFORM_BUFFER, 0);
         }
 
-        Self { id, inner }
+        let s = Self { id, inner };
+        s.update();
+        s
     }
 
     /// Update the UniformBuffer with the current state of `inner`

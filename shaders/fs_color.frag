@@ -8,6 +8,7 @@ in VsOut {
 
 layout (std140, binding = 4) uniform Material {
     uniform vec4 texBaseColorFactor;
+    uniform vec3 lightPos;
 };
 
 out vec4 FragColor;

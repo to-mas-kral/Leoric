@@ -40,11 +40,16 @@ impl DataBundle {
 pub struct Model {
     /// An artifical root node
     pub root: Node,
+    /// Name of the model
     pub name: String,
+    /// Animation data
     pub animations: Animations,
+    /// Model transforms of the whole object
+    pub transform: Mat4,
 }
 
 impl Model {
+    /// Load the model from a path to a gltf file
     pub fn from_gltf(path: &str) -> Result<Model> {
         let (gltf, buffers, images) = gltf::import(path)?;
         let name = Path::new(path)
@@ -82,6 +87,7 @@ impl Model {
             root,
             name,
             animations,
+            transform: Mat4::IDENTITY,
         })
     }
 }
@@ -91,17 +97,20 @@ impl Model {
 pub struct Node {
     /// The same index as in the gltf file
     pub index: usize,
+    /// Name of the node
     pub name: String,
-
+    /// Children nodes
     pub children: Vec<Node>,
+    /// Optional mesh data of the node (can contain multiple primitives)
     pub mesh: Option<Mesh>,
-
+    /// Transform of the node on the hierarchy
     pub transform: Mat4,
-
+    /// Optional skeleton data this node is root of
     pub joints: Option<Joints>,
 }
 
 impl Node {
+    /// Crate a node from a gltf::Node structure
     fn from_gltf(
         node: &gltf::Node,
         bundle: &mut DataBundle,

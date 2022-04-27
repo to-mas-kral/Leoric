@@ -101,17 +101,6 @@ impl MyWindow {
     pub fn begin_frame(&mut self) {
         self.egui_state.input.time = Some(self.start_time.elapsed().as_secs_f64());
         self.egui_ctx.begin_frame(self.egui_state.input.take());
-
-        //let mut visuals = egui::Visuals::default();
-        //visuals.override_text_color = Some(Color32::WHITE);
-        //self.egui_ctx.set_visuals(visuals);
-
-        /* egui::SidePanel::new(Side::Right, "side_panel")
-        .frame(Frame::group(&self.egui_ctx.style()).margin((10., 10.)))
-        .show(&self.egui_ctx, |ui| {
-            ui.add(Slider::new(&mut ambient_light, 0.0..=1.0).text("Ambientní osvětlení"));
-            ui.separator();
-        }); */
     }
 
     /// Finalizes the frame and returns if the render loop should terminate

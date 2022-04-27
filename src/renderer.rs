@@ -1,7 +1,7 @@
 use std::{ptr, time::Instant};
 
 use eyre::Result;
-use glam::{Mat4, Vec4};
+use glam::{Mat4, Vec3, Vec4};
 
 use crate::{
     camera::Camera,
@@ -14,6 +14,7 @@ use crate::{
 };
 
 mod joint_transforms;
+mod lighting;
 mod material;
 mod settings;
 /// Used for drawing a debug mesh of the skeleton
@@ -21,7 +22,7 @@ mod skeleton_mesh;
 mod transforms;
 
 use self::{
-    joint_transforms::JointTransforms, material::Material, settings::Settings,
+    joint_transforms::JointTransforms, lighting::Lighting, material::Material, settings::Settings,
     transforms::Transforms,
 };
 
@@ -33,10 +34,10 @@ pub struct Renderer {
     joint_transforms: UniformBuffer<JointTransforms>,
     settings: UniformBuffer<Settings>,
     material: UniformBuffer<Material>,
+    #[allow(unused)]
+    lighting: UniformBuffer<Lighting>,
 
     node_animation_transforms: Vec<NodeAnimationTransform>,
-
-    window_size: (i32, i32),
 }
 
 impl Renderer {
@@ -52,8 +53,8 @@ impl Renderer {
             joint_transforms: UniformBuffer::new(JointTransforms::new()),
             settings: UniformBuffer::new(Settings::new()),
             material: UniformBuffer::new(Material::new()),
+            lighting: UniformBuffer::new(Lighting::new(Vec3::new(400., 1000., 400.))),
             node_animation_transforms: Vec::new(),
-            window_size: (0, 0),
         })
     }
 
@@ -86,11 +87,8 @@ impl Renderer {
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
         }
 
-        self.window_size = (window.width as i32, window.height as i32);
-
         self.node_animation_transforms.clear();
 
-        // Transformations
         // TODO: možná glu perspective
         let persp = Mat4::perspective_rh(
             f32::to_radians(60.),
@@ -99,15 +97,16 @@ impl Renderer {
             3000.,
         );
 
+        let model = &mut models[gui_state.selected_model];
+
         self.transforms.inner.projection = persp;
         self.transforms.inner.view = camera.get_view_mat();
+        self.transforms.inner.model = model.transform;
         self.transforms.update();
-
-        let model = &mut models[gui_state.selected_model];
 
         self.apply_animation(model);
 
-        let transform = model.root.transform;
+        let transform = model.transform;
         self.render_node(&mut model.root, transform, gui_state);
 
         unsafe {
