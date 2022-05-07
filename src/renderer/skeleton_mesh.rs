@@ -29,14 +29,19 @@ pub fn draw_joints(world_transforms: &[Mat4], shader: &Shader) {
 
         gl::BindVertexArray(0);
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-    }
 
-    shader.render(|| unsafe {
-        gl::BindVertexArray(vao);
-        gl::PointSize(4.);
-        gl::DrawArrays(gl::POINTS, 0, positions.len() as i32);
-        gl::BindVertexArray(0);
-    });
+        shader.render(|| {
+            gl::BindVertexArray(vao);
+            gl::PointSize(4.);
+            gl::DrawArrays(gl::POINTS, 0, positions.len() as i32);
+            gl::BindVertexArray(0);
+        });
+
+        gl::DeleteVertexArrays(1, &vao);
+
+        let bufs = [_positions, _texcoords, _normals];
+        gl::DeleteBuffers(bufs.len() as _, bufs.as_ptr());
+    }
 }
 
 /// Drwas the bones of the joints specified by the joints array and their world_transforms array
@@ -68,11 +73,16 @@ pub fn draw_bones(world_transforms: &[Mat4], joints: &[Joint], shader: &Shader) 
 
         gl::BindVertexArray(0);
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
-    }
 
-    shader.render(|| unsafe {
-        gl::BindVertexArray(vao);
-        gl::DrawArrays(gl::LINES, 0, positions.len() as i32);
-        gl::BindVertexArray(0);
-    });
+        shader.render(|| {
+            gl::BindVertexArray(vao);
+            gl::DrawArrays(gl::LINES, 0, positions.len() as i32);
+            gl::BindVertexArray(0);
+        });
+
+        gl::DeleteVertexArrays(1, &vao);
+
+        let bufs = [_positions, _texcoords, _normals];
+        gl::DeleteBuffers(bufs.len() as _, bufs.as_ptr());
+    }
 }
